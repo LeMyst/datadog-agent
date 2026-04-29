@@ -9,10 +9,9 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
-
-	kindfilelogger "github.com/DataDog/datadog-agent/test/new-e2e/tests/agent-log-pipelines/kindfilelogging"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,6 +21,8 @@ import (
 
 	"github.com/DataDog/datadog-agent/test/e2e-framework/testing/e2e"
 	"github.com/DataDog/datadog-agent/test/e2e-framework/testing/environments"
+	k8sutils "github.com/DataDog/datadog-agent/test/e2e-framework/testing/utils/k8s"
+	kindfilelogger "github.com/DataDog/datadog-agent/test/new-e2e/tests/agent-log-pipelines/kindfilelogging"
 )
 
 type k8sSuite struct {
@@ -64,30 +65,38 @@ func (v *k8sSuite) TestSingleLogAndMetadata() {
 	}
 
 	_, err = v.Env().KubernetesCluster.Client().BatchV1().Jobs("default").Create(context.TODO(), jobSpcec, metav1.CreateOptions{})
-	require.NoError(v.T(), err, "Could not properly start job")
+	require.NoError(v.T(), err, "Could not create job")
+
+	_, err = k8sutils.WaitForJobPodRunning(context.TODO(), v.Env().KubernetesCluster.Client(), "default", "job-1", 30*time.Second)
+	if err != nil {
+		require.Fail(v.T(), "Job pod failed to start",
+			"%v\n%s", err, k8sutils.DescribeJob(context.TODO(), v.Env().KubernetesCluster.Client(), "default", "job-1"))
+	}
 
 	v.EventuallyWithT(func(c *assert.CollectT) {
 		logsServiceNames, err := v.Env().FakeIntake.Client().GetLogServiceNames()
-		assert.NoError(c, err, "Error starting job")
-		if err != nil {
+		if !assert.NoError(c, err, "Error getting log service names") {
 			return
 		}
 
-		if assert.Contains(c, logsServiceNames, "ubuntu", "Ubuntu service not found") {
-			filteredLogs, err := v.Env().FakeIntake.Client().FilterLogs("ubuntu")
-			assert.NoError(c, err, "Error filtering logs")
-			if err != nil {
-				return
-			}
-			if assert.NotEmpty(c, filteredLogs, "Fake Intake returned no logs even though log service name exists") {
-				assert.Equal(c, testLogMessage, filteredLogs[0].Message, "Test log doesn't match")
-				// Check container metatdata
-				assert.Equal(c, filteredLogs[0].Service, "ubuntu", "Could not find service")
-				assert.NotNil(c, filteredLogs[0].HostName, "Hostname not found")
-				assert.NotNil(c, filteredLogs[0].Tags, "Log tags not found")
-			}
+		if !slices.Contains(logsServiceNames, "ubuntu") {
+			assert.Fail(c, "Ubuntu service not found",
+				"Known services: %v\n%s\n%s",
+				logsServiceNames, fakeintakeRouteStats(v.Env().FakeIntake),
+				k8sutils.DescribeJob(context.TODO(), v.Env().KubernetesCluster.Client(), "default", "job-1"))
+			return
 		}
 
+		filteredLogs, err := v.Env().FakeIntake.Client().FilterLogs("ubuntu")
+		if !assert.NoError(c, err, "Error filtering logs") {
+			return
+		}
+		if assert.NotEmpty(c, filteredLogs, "Fake Intake returned no logs even though log service name exists") {
+			assert.Equal(c, testLogMessage, filteredLogs[0].Message, "Test log doesn't match")
+			assert.Equal(c, "ubuntu", filteredLogs[0].Service, "Could not find service")
+			assert.NotNil(c, filteredLogs[0].HostName, "Hostname not found")
+			assert.NotNil(c, filteredLogs[0].Tags, "Log tags not found")
+		}
 	}, 1*time.Minute, 10*time.Second)
 }
 
@@ -124,26 +133,35 @@ func (v *k8sSuite) TestLongLogLine() {
 	}
 
 	_, err = v.Env().KubernetesCluster.Client().BatchV1().Jobs("default").Create(context.TODO(), jobSpcec, metav1.CreateOptions{})
-	require.NoError(v.T(), err, "Could not properly start job")
+	require.NoError(v.T(), err, "Could not create job")
+
+	_, err = k8sutils.WaitForJobPodRunning(context.TODO(), v.Env().KubernetesCluster.Client(), "default", "long-line-job", 30*time.Second)
+	if err != nil {
+		require.Fail(v.T(), "Long line job pod failed to start",
+			"%v\n%s", err, k8sutils.DescribeJob(context.TODO(), v.Env().KubernetesCluster.Client(), "default", "long-line-job"))
+	}
 
 	v.EventuallyWithT(func(c *assert.CollectT) {
 		logsServiceNames, err := v.Env().FakeIntake.Client().GetLogServiceNames()
-		assert.NoError(c, err, "Error starting job")
-		if err != nil {
+		if !assert.NoError(c, err, "Error getting log service names") {
 			return
 		}
 
-		if assert.Contains(c, logsServiceNames, "ubuntu", "Ubuntu service not found") {
-			filteredLogs, err := v.Env().FakeIntake.Client().FilterLogs("ubuntu")
-			assert.NoError(c, err, "Error filtering logs")
-			if err != nil {
-				return
-			}
-			if assert.NotEmpty(c, filteredLogs, "Fake Intake returned no logs even though log service name exists") {
-				assert.Equal(c, longLineLog, fmt.Sprintf("%s%s", filteredLogs[0].Message, "\n"), "Test log doesn't match")
-			}
+		if !slices.Contains(logsServiceNames, "ubuntu") {
+			assert.Fail(c, "Ubuntu service not found",
+				"Known services: %v\n%s\n%s",
+				logsServiceNames, fakeintakeRouteStats(v.Env().FakeIntake),
+				k8sutils.DescribeJob(context.TODO(), v.Env().KubernetesCluster.Client(), "default", "long-line-job"))
+			return
 		}
 
+		filteredLogs, err := v.Env().FakeIntake.Client().FilterLogs("ubuntu")
+		if !assert.NoError(c, err, "Error filtering logs") {
+			return
+		}
+		if assert.NotEmpty(c, filteredLogs, "Fake Intake returned no logs even though log service name exists") {
+			assert.Equal(c, longLineLog, fmt.Sprintf("%s%s", filteredLogs[0].Message, "\n"), "Test log doesn't match")
+		}
 	}, 1*time.Minute, 10*time.Second)
 }
 
@@ -189,14 +207,26 @@ func (v *k8sSuite) TestContainerExclude() {
 	}
 
 	_, err = v.Env().KubernetesCluster.Client().BatchV1().Jobs(namespaceName).Create(context.TODO(), jobSpcec, metav1.CreateOptions{})
-	require.NoError(v.T(), err, "Could not properly start job")
+	require.NoError(v.T(), err, "Could not create job")
+
+	_, err = k8sutils.WaitForJobPodRunning(context.TODO(), v.Env().KubernetesCluster.Client(), namespaceName, "exclude-job", 30*time.Second)
+	if err != nil {
+		require.Fail(v.T(), "Exclude job pod failed to start",
+			"%v\n%s", err, k8sutils.DescribeJob(context.TODO(), v.Env().KubernetesCluster.Client(), namespaceName, "exclude-job"))
+	}
 
 	v.EventuallyWithT(func(c *assert.CollectT) {
 		logsServiceNames, err := v.Env().FakeIntake.Client().GetLogServiceNames()
-		assert.NoError(c, err, "Error starting job")
-		if err != nil {
+		if !assert.NoError(c, err, "Error getting log service names") {
 			return
 		}
 		assert.NotContains(c, logsServiceNames, "alpine", "Alpine service found after excluded")
 	}, 1*time.Minute, 10*time.Second)
+}
+
+func (v *k8sSuite) AfterTest(suiteName, testName string) {
+	if v.T().Failed() {
+		v.T().Log(fakeintakeRouteStats(v.Env().FakeIntake))
+	}
+	v.BaseSuite.AfterTest(suiteName, testName)
 }
