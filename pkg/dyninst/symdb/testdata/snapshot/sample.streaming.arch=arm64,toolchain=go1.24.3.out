@@ -255,7 +255,7 @@ Package: main
 	Function: main (main.main) in github.com/DataDog/datadog-agent/pkg/dyninst/testprogs/progs/sample/main.go [20:58] injectible: [20-21], [24-25], [27-39], [41-42], [44-46], [48-49], [52-58]
 		Var: it: main.iterExample (declared at line 43, available: [20-58])
 		Var: t: github.com/DataDog/datadog-agent/pkg/dyninst/testprogs/progs/sample/lib.v2.V2Type (declared at line 40, available: [20-58])
-	Function: main.WithService.func1 (main.main.WithService.func1) in github.com/DataDog/dd-trace-go/v2@v2.2.3-rc.1/ddtrace/tracer/option.go [986:989] injectible: [986-989]
+	Function: main.WithService.func1 (main.main.WithService.func1) in github.com/DataDog/dd-trace-go/v2/ddtrace/tracer/option.go [986:989] injectible: [986-989]
 		Arg: c: *github.com/DataDog/dd-trace-go/v2/ddtrace/tracer.config (declared at line 986, available: [986-988])
 		Var: name: string (declared at line 987, available: [987-989])
 	Function: makePaddedData (main.makePaddedData) in github.com/DataDog/datadog-agent/pkg/dyninst/testprogs/progs/sample/continuation.go [104:107] injectible: [105-107]

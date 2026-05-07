@@ -233,6 +233,21 @@ func (p *Package) Serialize(w StringWriter) {
 	}
 }
 
+// normalizeFilePath strips the version suffix from Go module cache paths so
+// that snapshot files remain stable across dependency version bumps.
+// e.g. "github.com/foo/bar@v1.2.3/pkg/file.go" → "github.com/foo/bar/pkg/file.go"
+func normalizeFilePath(file string) string {
+	at := strings.Index(file, "@")
+	if at < 0 {
+		return file
+	}
+	slash := strings.Index(file[at:], "/")
+	if slash < 0 {
+		return file[:at]
+	}
+	return file[:at] + file[at+slash:]
+}
+
 // Serialize serializes the function as a human-readable string.
 func (f Function) Serialize(w StringWriter, indent string) {
 	w.WriteString(indent)
@@ -242,7 +257,7 @@ func (f Function) Serialize(w StringWriter, indent string) {
 	w.WriteString(f.QualifiedName)
 	w.WriteString(")")
 	w.WriteString(" in ")
-	file := f.File
+	file := normalizeFilePath(f.File)
 	w.WriteString(file)
 	w.WriteString(fmt.Sprintf(" [%d:%d]", f.StartLine, f.EndLine))
 	w.WriteString(" injectible: ")
