@@ -9,10 +9,10 @@ package nvidia
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/NVIDIA/go-nvml/pkg/nvml"
-	"github.com/hashicorp/go-multierror"
 
 	ddnvml "github.com/DataDog/datadog-agent/pkg/gpu/safenvml"
 	"github.com/DataDog/datadog-agent/pkg/metrics"
@@ -78,19 +78,19 @@ func (c *nvlinkPLRCollector) Name() CollectorName {
 func (c *nvlinkPLRCollector) Collect() ([]*Metric, error) {
 	var (
 		allMetrics []*Metric
-		multiErr   error
+		multiErr   []error
 	)
 
 	for _, port := range c.ports {
 		metrics, err := c.getPortMetrics(port)
 		if err != nil {
-			multiErr = multierror.Append(multiErr, fmt.Errorf("get port metrics for port %d: %w", port, err))
+			multiErr = append(multiErr, fmt.Errorf("get port metrics for port %d: %w", port, err))
 			continue
 		}
 		allMetrics = append(allMetrics, metrics...)
 	}
 
-	return allMetrics, multiErr
+	return allMetrics, errors.Join(multiErr...)
 }
 
 func (c *nvlinkPLRCollector) getPortMetrics(port int) ([]*Metric, error) {
@@ -100,11 +100,11 @@ func (c *nvlinkPLRCollector) getPortMetrics(port int) ([]*Metric, error) {
 		return nil, fmt.Errorf("read port counters: %w", err)
 	}
 
-	var multiErr error
+	var multiErr []error
 	for _, field := range plrCounterFields {
 		value, found := counters[field]
 		if !found {
-			multiErr = multierror.Append(multiErr, fmt.Errorf("missing PLR counter %q for port %d", field, port))
+			multiErr = append(multiErr, fmt.Errorf("missing PLR counter %q for port %d", field, port))
 			continue
 		}
 
@@ -119,7 +119,7 @@ func (c *nvlinkPLRCollector) getPortMetrics(port int) ([]*Metric, error) {
 		})
 	}
 
-	return allMetrics, multiErr
+	return allMetrics, errors.Join(multiErr...)
 }
 
 func (c *nvlinkPLRCollector) readPortCounters(port int) (map[string]uint64, error) {
