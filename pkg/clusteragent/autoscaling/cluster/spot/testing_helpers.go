@@ -16,6 +16,7 @@ import (
 	"k8s.io/utils/clock"
 
 	workloadmeta "github.com/DataDog/datadog-agent/comp/core/workloadmeta/def"
+	"github.com/DataDog/datadog-agent/pkg/aggregator/mocksender"
 )
 
 // TestScheduler is an alias for the unexported scheduler type, exposed for testing.
@@ -32,7 +33,10 @@ func NewTestScheduler(config Config, clk clock.WithTicker, wlm workloadmeta.Comp
 	patcherFunc := workloadPatcherFunc(func(context.Context, objectRef, time.Time) error {
 		return nil
 	})
-	return newScheduler(config, clk, wlm, evictorFunc, patcherFunc, dynamicClient, newWLMPodLister(wlm), isLeader)
+	mockSender := mocksender.NewMockSender("test-spot-scheduler")
+	mockSender.SetupAcceptAll()
+	tel := newTelemetry(mockSender)
+	return newScheduler(config, clk, wlm, evictorFunc, patcherFunc, dynamicClient, newWLMPodLister(wlm), isLeader, tel)
 }
 
 // HasAdmissionsOrPending reports whether the pod tracker has any in-flight admissions or pending pods

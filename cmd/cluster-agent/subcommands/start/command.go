@@ -564,7 +564,7 @@ func start(log log.Component,
 
 	var sh clusterspot.PodHandler
 	if config.GetBool("autoscaling.cluster.spot.enabled") {
-		if scheduler, err := clusterspot.StartSpotScheduling(mainCtx, wmeta, apiCl, le.IsLeader); err == nil {
+		if scheduler, err := clusterspot.StartSpotScheduling(mainCtx, wmeta, apiCl, le.IsLeader, demultiplexer); err == nil {
 			sh = scheduler
 		} else {
 			return fmt.Errorf("Error while starting spot scheduling: %w", err)

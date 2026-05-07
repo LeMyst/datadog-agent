@@ -22,6 +22,7 @@ import (
 const (
 	checkOnDemandFallbackInterval = 10 * time.Second
 	rebalanceInterval             = 10 * time.Second
+	metricsFlushInterval          = 30 * time.Second
 )
 
 // scheduler schedules eligible pods onto spot instances.
@@ -35,21 +36,23 @@ type scheduler struct {
 	isLeader    func() bool
 	tracker     *podTracker
 	controller  *workloadController
+	telemetry   *telemetry
 	synced      chan struct{}
 }
 
-func newScheduler(cfg Config, clk clock.WithTicker, wlm workloadmeta.Component, evictor podEvictor, patcher workloadPatcher, dynamicClient dynamic.Interface, lister podLister, isLeader func() bool) *scheduler {
+func newScheduler(cfg Config, clk clock.WithTicker, wlm workloadmeta.Component, evictor podEvictor, patcher workloadPatcher, dynamicClient dynamic.Interface, lister podLister, isLeader func() bool, tel *telemetry) *scheduler {
 	s := &scheduler{
-		config:   cfg,
-		clock:    clk,
-		wlm:      wlm,
-		evictor:  evictor,
-		patcher:  patcher,
-		isLeader: isLeader,
-		synced:   make(chan struct{}),
+		config:    cfg,
+		clock:     clk,
+		wlm:       wlm,
+		evictor:   evictor,
+		patcher:   patcher,
+		isLeader:  isLeader,
+		telemetry: tel,
+		synced:    make(chan struct{}),
 	}
 	defaultConfig := workloadSpotConfig{percentage: cfg.Percentage, minOnDemand: cfg.MinOnDemandReplicas}
-	s.tracker = newPodTracker(clk, defaultConfig, s.getSpotConfig)
+	s.tracker = newPodTracker(clk, defaultConfig, s.getSpotConfig, tel, isLeader)
 	store := newSpotConfigStore()
 	s.configStore = store
 	s.controller = newWorkloadController(dynamicClient, defaultConfig, store, lister, s.tracker)
@@ -65,6 +68,7 @@ func (s *scheduler) Start(ctx context.Context) {
 	go s.trackPodUpdates(ctx)
 	go s.checkOnDemandFallback(ctx)
 	go s.rebalance(ctx)
+	go s.updateMetrics(ctx)
 }
 
 // trackPodUpdates subscribes to workloadmeta pod events and updates the tracker.
@@ -136,15 +140,33 @@ func (s *scheduler) rebalance(ctx context.Context) {
 			if !s.isLeader() {
 				continue
 			}
-			uid, name, namespace := s.tracker.getPodToDelete(s.config.RebalanceStabilizationPeriod)
+			owner, uid, name, isSpot := s.tracker.getPodToDelete(s.config.RebalanceStabilizationPeriod)
 			if uid == "" {
 				continue
 			}
-			if err := s.evictor.evictPod(ctx, namespace, name, ""); err != nil {
-				log.Errorf("Failed to evict pod %s/%s for rebalancing: %v", namespace, name, err)
+			if err := s.evictor.evictPod(ctx, owner.Namespace, name, ""); err != nil {
+				log.Errorf("Failed to evict pod %s/%s for rebalancing: %v", owner.Namespace, name, err)
 				continue
 			}
-			log.Infof("Evicted pod %s/%s for spot rebalancing", namespace, name)
+			log.Infof("Evicted pod %s/%s for spot rebalancing", owner.Namespace, name)
+			s.telemetry.observeRebalanceEviction(owner, isSpot)
+		}
+	}
+}
+
+// updateMetrics periodically updates workload and fallback counts.
+func (s *scheduler) updateMetrics(ctx context.Context) {
+	ticker := s.clock.NewTicker(metricsFlushInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case now := <-ticker.C():
+			if s.isLeader() {
+				s.telemetry.observeWorkloadCounts(s.configStore.countByKind())
+				s.telemetry.observeActiveFallbacks(s.configStore.countDisabledByKind(now))
+			}
 		}
 	}
 }
@@ -282,5 +304,9 @@ func (s *scheduler) disableSpotScheduling(ctx context.Context, topLevelOwner obj
 		return nil
 	}
 	log.Infof("Disabling spot scheduling for %s until %v", topLevelOwner, disabledUntil)
-	return s.patcher.setDisabledUntil(ctx, topLevelOwner, disabledUntil)
+	err := s.patcher.setDisabledUntil(ctx, topLevelOwner, disabledUntil)
+	if err == nil {
+		s.telemetry.observeFallback(topLevelOwner)
+	}
+	return err
 }
