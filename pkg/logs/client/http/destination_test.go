@@ -761,8 +761,8 @@ func TestDestinationSourceTagBasedOnTelemetryName(t *testing.T) {
 
 	// Create telemetry mock
 	telemetryMock := fxutil.Test[telemetry.Component](t, mocktelemetry.Module())
-	metrics.TlmBytesSent = telemetryMock.NewCounter("logs", "bytes_sent", []string{"remote_agent", "source"}, "")
-	metrics.TlmEncodedBytesSent = telemetryMock.NewCounter("logs", "encoded_bytes_sent", []string{"remote_agent", "source", "compression_kind"}, "")
+	metrics.TlmBytesSent = telemetryMock.NewCounter("logs", "bytes_sent", []string{"emitter", "source"}, "")
+	metrics.TlmEncodedBytesSent = telemetryMock.NewCounter("logs", "encoded_bytes_sent", []string{"emitter", "source", "compression_kind"}, "")
 
 	// Create a new server
 	server := NewTestServer(200, cfg)
@@ -784,13 +784,13 @@ func TestDestinationSourceTagBasedOnTelemetryName(t *testing.T) {
 	metric, err := telemetryMock.(telemetry.Mock).GetCountMetric("logs", "bytes_sent")
 	assert.NoError(t, err)
 	assert.Len(t, metric, 1)
-	assert.Equal(t, "agent", metric[0].Tags()["remote_agent"]) // "agent" for core agent (via GetAgentIdentityTag)
+	assert.Equal(t, "agent", metric[0].Tags()["emitter"]) // "agent" for core agent (via GetAgentIdentityTag)
 	assert.Equal(t, "logs", metric[0].Tags()["source"])
 
 	metric, err = telemetryMock.(telemetry.Mock).GetCountMetric("logs", "encoded_bytes_sent")
 	assert.NoError(t, err)
 	assert.Len(t, metric, 1)
-	assert.Equal(t, "agent", metric[0].Tags()["remote_agent"])
+	assert.Equal(t, "agent", metric[0].Tags()["emitter"])
 	assert.Equal(t, "logs", metric[0].Tags()["source"])
 }
 
@@ -800,8 +800,8 @@ func TestDestinationSourceTagEPForwarder(t *testing.T) {
 
 	// Create telemetry mock
 	telemetryMock := fxutil.Test[telemetry.Component](t, mocktelemetry.Module())
-	metrics.TlmBytesSent = telemetryMock.NewCounter("logs", "bytes_sent", []string{"remote_agent", "source"}, "")
-	metrics.TlmEncodedBytesSent = telemetryMock.NewCounter("logs", "encoded_bytes_sent", []string{"remote_agent", "source", "compression_kind"}, "")
+	metrics.TlmBytesSent = telemetryMock.NewCounter("logs", "bytes_sent", []string{"emitter", "source"}, "")
+	metrics.TlmEncodedBytesSent = telemetryMock.NewCounter("logs", "encoded_bytes_sent", []string{"emitter", "source", "compression_kind"}, "")
 
 	// Create a new server
 	server := NewTestServer(200, cfg)
@@ -822,13 +822,13 @@ func TestDestinationSourceTagEPForwarder(t *testing.T) {
 	metric, err := telemetryMock.(telemetry.Mock).GetCountMetric("logs", "bytes_sent")
 	assert.NoError(t, err)
 	assert.Len(t, metric, 1)
-	assert.Equal(t, "agent", metric[0].Tags()["remote_agent"]) // "agent" for core agent (via GetAgentIdentityTag)
+	assert.Equal(t, "agent", metric[0].Tags()["emitter"]) // "agent" for core agent (via GetAgentIdentityTag)
 	assert.Equal(t, "epforwarder", metric[0].Tags()["source"])
 
 	metric, err = telemetryMock.(telemetry.Mock).GetCountMetric("logs", "encoded_bytes_sent")
 	assert.NoError(t, err)
 	assert.Len(t, metric, 1)
-	assert.Equal(t, "agent", metric[0].Tags()["remote_agent"])
+	assert.Equal(t, "agent", metric[0].Tags()["emitter"])
 	assert.Equal(t, "epforwarder", metric[0].Tags()["source"])
 }
 
@@ -838,7 +838,7 @@ func TestDestinationCompression(t *testing.T) {
 
 	// Create telemetry mock
 	telemetryMock := fxutil.Test[telemetry.Component](t, mocktelemetry.Module())
-	metrics.TlmEncodedBytesSent = telemetryMock.NewCounter("logs", "encoded_bytes_sent", []string{"remote_agent", "source", "compression_kind"}, "")
+	metrics.TlmEncodedBytesSent = telemetryMock.NewCounter("logs", "encoded_bytes_sent", []string{"emitter", "source", "compression_kind"}, "")
 
 	// Create a new server with compression enabled
 	server := NewTestServer(200, cfg)
