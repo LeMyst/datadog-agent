@@ -9,7 +9,6 @@ package kubeactions
 
 import (
 	"encoding/json"
-	"maps"
 	"time"
 
 	kubeactions "github.com/DataDog/agent-payload/v5/kubeactions"
@@ -105,14 +104,14 @@ func (r *ResultReporter) report(actionKey ActionKey, action *kubeactions.KubeAct
 		RequestedBy:       action.GetRequestedBy(),
 		Timestamp:         ts.Format(time.RFC3339),
 		Message:           msg,
-		Payloads:          maps.Clone(payloads),
+		Payloads:          payloads,
 		ClusterName:       r.clusterName,
 		ResourceKind:      resourceKind,
 		ResourceName:      resourceName,
 		ResourceNamespace: resourceNamespace,
 	}
 
-	log.Infof("[KubeActions] Sending EVP event: event_type=%s, action_id=%s, status=%s nr_payloads=", evpEventType, event.ActionID, event.Status, len(event.Payloads))
+	log.Infof("[KubeActions] Sending EVP event: event_type=%s, action_id=%s, status=%s nr_payloads=%d", evpEventType, event.ActionID, event.Status, len(event.Payloads))
 
 	payload, err := json.Marshal(event)
 	if err != nil {
