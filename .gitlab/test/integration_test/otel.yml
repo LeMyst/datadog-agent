@@ -103,7 +103,9 @@ docker_image_build_otel:
       CACHE_FROM="--cache-from type=registry,ref=${CACHE_REGISTRY}"
       CACHE_TO=""
       NO_CACHE=""
-      if [[ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" || "$BUCKET_BRANCH" == "nightly" ]]; then
+      # TEMP: always push cache so we can test cache export on PR branches without waiting for a merge to main
+      CACHE_TO="--cache-to type=registry,ref=${CACHE_REGISTRY},mode=max"
+      if false && [[ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" || "$BUCKET_BRANCH" == "nightly" ]]; then
         CACHE_TO="--cache-to type=registry,ref=${CACHE_REGISTRY},mode=max"
       fi
       if [[ "$BUCKET_BRANCH" == "nightly" ]]; then
