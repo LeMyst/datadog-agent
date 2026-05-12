@@ -57,7 +57,7 @@ linters:
             - "!**/pkg/security/**"
           deny:
             - pkg: "github.com/hashicorp/go-multierror"
-              desc: "use errors.Join instead (Go 1.20+); pkg/security is exempt while its PolicyProvider interface is migrated"
+              desc: "use errors.Join instead (Go 1.20+)"
         logger:
           files:
             - $all
