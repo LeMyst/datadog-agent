@@ -228,26 +228,26 @@ func Commands(globalParams *command.GlobalParams) []*cobra.Command {
 		// to agent health.
 		defer func() {
 			if r := recover(); r != nil {
-				fmt.Fprintf(os.Stderr, "[AGENTLITECONFIG] rescue firing on panic: %v\n", r)
+				fmt.Fprintf(os.Stderr, "rescue firing on panic: %v\n", r)
 				if err := lite.Rescue(context.Background(),
 					globalParams.ConfFilePath,
 					lite.DefaultConfigPath(),
 					fmt.Errorf("agent run panic: %v", r)); err != nil {
-					fmt.Fprintf(os.Stderr, "[AGENTLITECONFIG] rescue returned error: %v\n", err)
+					fmt.Fprintf(os.Stderr, "rescue returned error: %v\n", err)
 				} else {
-					fmt.Fprintln(os.Stderr, "[AGENTLITECONFIG] rescue POST succeeded")
+					fmt.Fprintln(os.Stderr, "rescue POST succeeded")
 				}
 				panic(r) // re-raise for non-zero exit
 			}
 			if rErr != nil {
-				fmt.Fprintf(os.Stderr, "[AGENTLITECONFIG] rescue firing on Fx error: %v\n", rErr)
+				fmt.Fprintf(os.Stderr, "rescue firing on Fx error: %v\n", rErr)
 				if err := lite.Rescue(context.Background(),
 					globalParams.ConfFilePath,
 					lite.DefaultConfigPath(),
 					rErr); err != nil {
-					fmt.Fprintf(os.Stderr, "[AGENTLITECONFIG] rescue returned error: %v\n", err)
+					fmt.Fprintf(os.Stderr, "rescue returned error: %v\n", err)
 				} else {
-					fmt.Fprintln(os.Stderr, "[AGENTLITECONFIG] rescue POST succeeded")
+					fmt.Fprintln(os.Stderr, "rescue POST succeeded")
 				}
 			}
 		}()
