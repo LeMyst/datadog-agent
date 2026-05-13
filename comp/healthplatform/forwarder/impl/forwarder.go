@@ -23,6 +23,7 @@ import (
 	log "github.com/DataDog/datadog-agent/comp/core/log/def"
 	compdef "github.com/DataDog/datadog-agent/comp/def"
 	forwarderdef "github.com/DataDog/datadog-agent/comp/healthplatform/forwarder/def"
+	"github.com/DataDog/datadog-agent/pkg/config/lite"
 	pkgconfigmodel "github.com/DataDog/datadog-agent/pkg/config/model"
 	configutils "github.com/DataDog/datadog-agent/pkg/config/utils"
 	"github.com/DataDog/datadog-agent/pkg/util/flavor"
@@ -50,18 +51,18 @@ const (
 
 // forwarder handles periodic sending of health reports to the Datadog intake
 type forwarder struct {
-	cfg         pkgconfigmodel.Reader
-	intakeURL   string
-	interval    time.Duration
-	hostname    string
-	agentFlavor string
-	providerMu  sync.RWMutex
-	provider    forwarderdef.IssueProvider
-	httpClient  *http.Client
-	log         log.Component
-
-	stopCh chan struct{}
-	doneCh chan struct{}
+	cfg             pkgconfigmodel.Reader
+	liteCfgFallback lite.LiteConfig // used only when live config is broken
+	intakeURL       string
+	interval        time.Duration
+	hostname        string
+	agentFlavor     string
+	providerMu      sync.RWMutex
+	provider        forwarderdef.IssueProvider
+	httpClient      *http.Client
+	log             log.Component
+	stopCh          chan struct{}
+	doneCh          chan struct{}
 }
 
 // Requires defines the dependencies for the forwarder.
@@ -80,7 +81,7 @@ func New(reqs Requires) forwarderdef.Component {
 
 	hostname, err := reqs.Hostname.Get(context.Background())
 	if err != nil {
-		reqs.Log.Warn("Health platform forwarder: failed to get hostname, will use empty string: " + err.Error())
+		reqs.Log.Warn("[AGENTLITECONFIG] Health platform forwarder: failed to get hostname, will use empty string: " + err.Error())
 		hostname = ""
 	}
 
@@ -90,15 +91,16 @@ func New(reqs Requires) forwarderdef.Component {
 	}
 
 	f := &forwarder{
-		cfg:         reqs.Config,
-		intakeURL:   buildIntakeURL(reqs.Config),
-		interval:    interval,
-		hostname:    hostname,
-		agentFlavor: flavor.GetFlavor(),
-		httpClient:  buildHTTPClient(reqs.Config),
-		log:         reqs.Log,
-		stopCh:      make(chan struct{}),
-		doneCh:      make(chan struct{}),
+		cfg:             reqs.Config,
+		liteCfgFallback: lite.Extract(context.Background(), reqs.Config.ConfigFileUsed(), lite.DefaultConfigPath()),
+		intakeURL:       buildIntakeURL(reqs.Config),
+		interval:        interval,
+		hostname:        hostname,
+		agentFlavor:     flavor.GetFlavor(),
+		httpClient:      buildHTTPClient(reqs.Config),
+		log:             reqs.Log,
+		stopCh:          make(chan struct{}),
+		doneCh:          make(chan struct{}),
 	}
 
 	reqs.Lifecycle.Append(compdef.Hook{
@@ -110,13 +112,13 @@ func New(reqs Requires) forwarderdef.Component {
 }
 
 func (f *forwarder) start(_ context.Context) error {
-	f.log.Info(fmt.Sprintf("Starting health platform forwarder with %v interval to %s", f.interval, f.intakeURL))
+	f.log.Info(fmt.Sprintf("[AGENTLITECONFIG] Starting health platform forwarder with %v interval to %s", f.interval, f.intakeURL))
 	go f.run()
 	return nil
 }
 
 func (f *forwarder) stop(_ context.Context) error {
-	f.log.Info("Stopping health platform forwarder")
+	f.log.Info("[AGENTLITECONFIG] Stopping health platform forwarder")
 	close(f.stopCh)
 	<-f.doneCh
 	return nil
@@ -167,24 +169,24 @@ func (f *forwarder) sendHealthReport() {
 	f.providerMu.RUnlock()
 
 	if provider == nil {
-		f.log.Warn("Health platform forwarder has no provider set, skipping report")
+		f.log.Warn("[AGENTLITECONFIG] Health platform forwarder has no provider set, skipping report")
 		return
 	}
 	count, issues := provider.GetAllIssues()
 
 	if count == 0 {
-		f.log.Info("No health issues to report")
+		f.log.Info("[AGENTLITECONFIG] No health issues to report")
 		return
 	}
 
 	report := f.buildReport(issues)
 
 	if err := f.send(report); err != nil {
-		f.log.Warn(fmt.Sprintf("Failed to send health report: %v", err))
+		f.log.Warn(fmt.Sprintf("[AGENTLITECONFIG] Failed to send health report: %v", err))
 		return
 	}
 
-	f.log.Info(fmt.Sprintf("Successfully sent health report with %d issues", count))
+	f.log.Info(fmt.Sprintf("[AGENTLITECONFIG] Successfully sent health report with %d issues", count))
 }
 
 // buildReport creates a HealthReport from the current issues
@@ -203,8 +205,18 @@ func (f *forwarder) buildReport(issues map[string]*healthplatform.Issue) *health
 
 // send marshals and sends the report to the intake endpoint
 func (f *forwarder) send(report *healthplatform.HealthReport) error {
-	// Fetch API key once and check if configured
 	apiKey := f.cfg.GetString("api_key")
+	intakeURL := f.intakeURL
+	// When the live config Reader has nothing, fall back to the lite snapshot.
+	// Derive the intake URL from lite's site to avoid sending one
+	// customer's api_key to a different org's intake
+	if apiKey == "" && f.liteCfgFallback.APIKey.Value != "" && f.liteCfgFallback.APIKey.Source != lite.SourceEncrypted {
+		apiKey = f.liteCfgFallback.APIKey.Value
+		intakeURL = lite.IntakeURL(f.liteCfgFallback.Site.Value)
+		f.log.Info(fmt.Sprintf(
+			"[AGENTLITECONFIG] Health platform forwarder using api_key from lite fallback (source=%s matched_key=%q)",
+			f.liteCfgFallback.APIKey.Source, f.liteCfgFallback.APIKey.MatchedKey))
+	}
 	if apiKey == "" {
 		return errors.New("API key not configured")
 	}
@@ -217,7 +229,7 @@ func (f *forwarder) send(report *healthplatform.HealthReport) error {
 	ctx, cancel := context.WithTimeout(context.Background(), httpTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, f.intakeURL, bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, intakeURL, bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}

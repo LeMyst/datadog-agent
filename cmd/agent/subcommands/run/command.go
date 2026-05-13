@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	_ "expvar" // Blank import used because this isn't directly used in this file
+	"fmt"
 	"net/http"
 	_ "net/http/pprof" // Blank import used because this isn't directly used in this file
 	"os"
@@ -106,7 +107,7 @@ import (
 	"github.com/DataDog/datadog-agent/comp/core/sysprobeconfig/sysprobeconfigimpl"
 	tagger "github.com/DataDog/datadog-agent/comp/core/tagger/def"
 	dualTaggerfx "github.com/DataDog/datadog-agent/comp/core/tagger/fx-dual"
-	"github.com/DataDog/datadog-agent/comp/core/telemetry/def"
+	telemetry "github.com/DataDog/datadog-agent/comp/core/telemetry/def"
 	workloadfilter "github.com/DataDog/datadog-agent/comp/core/workloadfilter/def"
 	workloadfilterfx "github.com/DataDog/datadog-agent/comp/core/workloadfilter/fx"
 	wmcatalog "github.com/DataDog/datadog-agent/comp/core/workloadmeta/collectors/catalog-core"
@@ -141,8 +142,8 @@ import (
 	"github.com/DataDog/datadog-agent/comp/metadata"
 	haagentmetadata "github.com/DataDog/datadog-agent/comp/metadata/haagent/def"
 	host "github.com/DataDog/datadog-agent/comp/metadata/host/def"
-	"github.com/DataDog/datadog-agent/comp/metadata/inventoryagent/def"
-	"github.com/DataDog/datadog-agent/comp/metadata/inventorychecks/def"
+	inventoryagent "github.com/DataDog/datadog-agent/comp/metadata/inventoryagent/def"
+	inventorychecks "github.com/DataDog/datadog-agent/comp/metadata/inventorychecks/def"
 	inventoryhost "github.com/DataDog/datadog-agent/comp/metadata/inventoryhost/def"
 	packagesigning "github.com/DataDog/datadog-agent/comp/metadata/packagesigning/def"
 	runner "github.com/DataDog/datadog-agent/comp/metadata/runner/def"
@@ -179,6 +180,7 @@ import (
 	profileStatus "github.com/DataDog/datadog-agent/pkg/collector/corechecks/snmp/status"
 	"github.com/DataDog/datadog-agent/pkg/collector/python"
 	"github.com/DataDog/datadog-agent/pkg/commonchecks"
+	"github.com/DataDog/datadog-agent/pkg/config/lite"
 	"github.com/DataDog/datadog-agent/pkg/config/remote/data"
 	commonsettings "github.com/DataDog/datadog-agent/pkg/config/settings"
 	configUtils "github.com/DataDog/datadog-agent/pkg/config/utils"
@@ -220,7 +222,36 @@ func Commands(globalParams *command.GlobalParams) []*cobra.Command {
 	cliParams := &cliParams{
 		GlobalParams: globalParams,
 	}
-	runE := func(*cobra.Command, []string) error {
+	runE := func(*cobra.Command, []string) (rErr error) {
+		// best-effort agent lite mode rescue: when init panics or returns an error the
+		// full agent never starts so lite.Rescue tries to run and POSTs an issue directly
+		// to agent health.
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Fprintf(os.Stderr, "[AGENTLITECONFIG] rescue firing on panic: %v\n", r)
+				if err := lite.Rescue(context.Background(),
+					globalParams.ConfFilePath,
+					lite.DefaultConfigPath(),
+					fmt.Errorf("agent run panic: %v", r)); err != nil {
+					fmt.Fprintf(os.Stderr, "[AGENTLITECONFIG] rescue returned error: %v\n", err)
+				} else {
+					fmt.Fprintln(os.Stderr, "[AGENTLITECONFIG] rescue POST succeeded")
+				}
+				panic(r) // re-raise for non-zero exit
+			}
+			if rErr != nil {
+				fmt.Fprintf(os.Stderr, "[AGENTLITECONFIG] rescue firing on Fx error: %v\n", rErr)
+				if err := lite.Rescue(context.Background(),
+					globalParams.ConfFilePath,
+					lite.DefaultConfigPath(),
+					rErr); err != nil {
+					fmt.Fprintf(os.Stderr, "[AGENTLITECONFIG] rescue returned error: %v\n", err)
+				} else {
+					fmt.Fprintln(os.Stderr, "[AGENTLITECONFIG] rescue POST succeeded")
+				}
+			}
+		}()
+
 		// TODO: once the agent is represented as a component, and not a function (run),
 		// this will use `fxutil.Run` instead of `fxutil.OneShot`.
 		configOpts := []func(*config.Params){

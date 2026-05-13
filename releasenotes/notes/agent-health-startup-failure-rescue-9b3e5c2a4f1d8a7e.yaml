@@ -1,0 +1,20 @@
+---
+enhancements:
+  - |
+    The agent now best-effort reports an ``invalid-config`` issue to the
+    Agent Health Platform when startup itself fails (panic or Fx wiring
+    error). A standalone rescue helper extracts credentials from a possibly-
+    broken ``datadog.yaml`` via a tiered resolver (env → full YAML →
+    indent-stripped YAML → column-0 regex → fuzzy match → defaults), resolves
+    ``ENC[]`` placeholders through ``secret_backend_command``, validates the
+    parsed configuration against the embedded schema, and POSTs the result
+    directly to the Agent Health intake — bypassing the normal forwarder
+    pipeline which is unavailable during startup failure.
+
+    The rescue path shares the ``invalid-config`` Issue ID with the in-Fx
+    periodic check, so backend deduplication collapses both detections onto
+    a single customer-facing row.
+
+    The Agent Health forwarder also now falls back to the lite-mode resolver
+    for its own ``api_key`` when the live configuration has no usable key,
+    using the lite-derived site to avoid cross-org payload misroutes.
