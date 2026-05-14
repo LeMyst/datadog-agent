@@ -21,10 +21,10 @@ import (
 	// Import issue modules to trigger their init() registration.
 	// The bundle is the correct place for side-effect imports; impl packages
 	// must not import other impl packages.
+	// invalidconfig is registered conditionally in bundle_invalidconfig.go (excluded from IoT).
 	_ "github.com/DataDog/datadog-agent/comp/healthplatform/issues/admisconfig"
 	_ "github.com/DataDog/datadog-agent/comp/healthplatform/issues/checkfailure"
 	_ "github.com/DataDog/datadog-agent/comp/healthplatform/issues/dockerpermissions"
-	_ "github.com/DataDog/datadog-agent/comp/healthplatform/issues/invalidconfig"
 	_ "github.com/DataDog/datadog-agent/comp/healthplatform/issues/rofspermissions"
 )
 
