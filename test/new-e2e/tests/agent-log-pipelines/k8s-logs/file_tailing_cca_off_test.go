@@ -115,13 +115,13 @@ func (v *k8sCCAOffSuite) TestCCAOff() {
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
-						{
-							Name:  "cca-off-job",
-							Image: "ubuntu",
-							// Sleep is added here so k8s doesn't kill the container before
-							// the agent container can detect it.
-							Command: []string{"sh", "-c", "echo '" + testLogMessage + "' && sleep 10"},
-						},
+					{
+						Name:  "cca-off-job",
+						Image: "ubuntu:this-tag-does-not-exist-99999",
+						// Sleep is added here so k8s doesn't kill the container before
+						// the agent container can detect it.
+						Command: []string{"sh", "-c", "echo '" + testLogMessage + "' && sleep 10"},
+					},
 					},
 					RestartPolicy: corev1.RestartPolicyNever,
 				},
