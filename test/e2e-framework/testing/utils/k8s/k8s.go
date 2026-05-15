@@ -170,14 +170,26 @@ func WaitForJobPodRunning(ctx context.Context, client kubernetes.Interface, name
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
+	var lastListErr error
+
 	// First check is immediate; subsequent checks wait for ticker.
 	for {
 		pods, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 			LabelSelector: fields.OneTermEqualSelector("job-name", jobName).String(),
 		})
 		if err != nil {
-			return nil, fmt.Errorf("error listing pods for job %s: %w", jobName, err)
+			lastListErr = err
+			if time.Now().After(deadline) {
+				return nil, fmt.Errorf("error listing pods for job %s (deadline reached): %w", jobName, err)
+			}
+			select {
+			case <-ctx.Done():
+				return nil, fmt.Errorf("waiting for job %s pod: %w", jobName, ctx.Err())
+			case <-ticker.C:
+			}
+			continue
 		}
+		lastListErr = nil
 
 		for i := range pods.Items {
 			pod := &pods.Items[i]
@@ -206,7 +218,11 @@ func WaitForJobPodRunning(ctx context.Context, client kubernetes.Interface, name
 
 		if time.Now().After(deadline) {
 			if len(pods.Items) == 0 {
-				return nil, fmt.Errorf("job %s: no pods created within %s", jobName, timeout)
+				msg := fmt.Sprintf("job %s: no pods created within %s", jobName, timeout)
+				if lastListErr != nil {
+					msg += fmt.Sprintf(" (last list error: %v)", lastListErr)
+				}
+				return nil, fmt.Errorf("%s", msg)
 			}
 			pod := &pods.Items[0]
 			return nil, fmt.Errorf("job %s pod %s still pending after %s (phase=%s, reason=%s, message=%s)",
@@ -215,7 +231,7 @@ func WaitForJobPodRunning(ctx context.Context, client kubernetes.Interface, name
 
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, fmt.Errorf("waiting for job %s pod: %w", jobName, ctx.Err())
 		case <-ticker.C:
 		}
 	}
@@ -294,25 +310,29 @@ func DescribeJob(ctx context.Context, client kubernetes.Interface, namespace, jo
 		// Container logs (best-effort, short tail — includes init containers)
 		for _, cs := range allStatuses {
 			if cs.State.Terminated != nil || cs.State.Running != nil {
-				logStream, err := client.CoreV1().Pods(namespace).GetLogs(pod.Name, &corev1.PodLogOptions{
-					Container: cs.Name,
-					TailLines: pointer.Ptr(int64(20)),
-				}).Stream(ctx)
-				if err != nil {
-					fmt.Fprintf(&out, "  logs for %s: error: %v\n", cs.Name, err)
-					continue
-				}
-				var logBuf strings.Builder
-				_, _ = io.Copy(&logBuf, io.LimitReader(logStream, 32*1024))
-				logStream.Close()
-				if logBuf.Len() > 0 {
-					fmt.Fprintf(&out, "  logs for %s:\n%s\n", cs.Name, logBuf.String())
+				logs := fetchContainerLogs(ctx, client, namespace, pod.Name, cs.Name)
+				if logs != "" {
+					fmt.Fprintf(&out, "  logs for %s:\n%s\n", cs.Name, logs)
 				}
 			}
 		}
 	}
 
 	return out.String()
+}
+
+func fetchContainerLogs(ctx context.Context, client kubernetes.Interface, namespace, podName, containerName string) string {
+	logStream, err := client.CoreV1().Pods(namespace).GetLogs(podName, &corev1.PodLogOptions{
+		Container: containerName,
+		TailLines: pointer.Ptr(int64(20)),
+	}).Stream(ctx)
+	if err != nil {
+		return fmt.Sprintf("error: %v", err)
+	}
+	defer logStream.Close()
+	var buf strings.Builder
+	_, _ = io.Copy(&buf, io.LimitReader(logStream, 32*1024))
+	return buf.String()
 }
 
 func concatStatuses(init, regular []corev1.ContainerStatus) []corev1.ContainerStatus {
