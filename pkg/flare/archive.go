@@ -17,6 +17,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -34,6 +35,8 @@ import (
 	"github.com/DataDog/datadog-agent/pkg/flare/common"
 	"github.com/DataDog/datadog-agent/pkg/flare/priviledged"
 	"github.com/DataDog/datadog-agent/pkg/process/util/coreagent"
+	secagent "github.com/DataDog/datadog-agent/pkg/security/agent"
+	secagentapi "github.com/DataDog/datadog-agent/pkg/security/proto/api"
 	systemprobeStatus "github.com/DataDog/datadog-agent/pkg/status/systemprobe"
 	sysprobeclient "github.com/DataDog/datadog-agent/pkg/system-probe/api/client"
 	"github.com/DataDog/datadog-agent/pkg/util/cloudproviders/network"
@@ -81,6 +84,7 @@ func ExtraFlareProviders(workloadmeta option.Option[workloadmeta.Component], ipc
 		flaretypes.NewFiller(provideAuthTokenPerm),
 		flaretypes.NewFiller(provideContainers(workloadmeta)),
 		flaretypes.NewFiller(provideRuntimeDebugInfo),
+		flaretypes.NewFiller(provideSecurityAgent),
 	}
 
 	for filename, fromFunc := range map[string]func() ([]byte, error){
@@ -182,6 +186,64 @@ func provideAuthTokenPerm(_ context.Context, fb flaretypes.FlareBuilder) error {
 func provideInstallInfo(_ context.Context, fb flaretypes.FlareBuilder) error {
 	fb.CopyFileTo(installinfo.GetFilePath(pkgconfigsetup.Datadog()), "install_info.log") //nolint:errcheck
 	return nil
+}
+
+// provideSecurityAgent collects diagnostic data for the compliance and
+// runtime-security (CWS) features that used to be collected by the now-removed
+// `security-agent flare` command. Each section is gated on its feature flag to
+// avoid bloating the flare when the feature is disabled.
+func provideSecurityAgent(_ context.Context, fb flaretypes.FlareBuilder) error {
+	if pkgconfigsetup.Datadog().GetBool("compliance_config.enabled") {
+		_ = getComplianceFiles(fb)
+	}
+	if pkgconfigsetup.SystemProbe().GetBool("runtime_security_config.enabled") {
+		_ = fb.AddFileFromFunc("runtime-security-policies.json", getRuntimeSecurityLoadedPolicies)
+	}
+	return nil
+}
+
+func getComplianceFiles(fb flaretypes.FlareBuilder) error {
+	compDir := pkgconfigsetup.Datadog().GetString("compliance_config.dir")
+	return fb.CopyDirTo(compDir, "compliance.d", func(path string) bool {
+		f, err := os.Lstat(path)
+		if err != nil {
+			return false
+		}
+		return f.Mode()&os.ModeSymlink == 0
+	})
+}
+
+// getRuntimeSecurityLoadedPolicies dumps the policies currently loaded by the
+// runtime-security module (system-probe), including rules and policies received
+// via remote-config — not just the file-based ones under
+// `runtime_security_config.policies.dir`. This mirrors the output of
+// `system-probe runtime policy dump --include-bundled`.
+func getRuntimeSecurityLoadedPolicies() ([]byte, error) {
+	client, err := newRuntimeSecurityCmdClient()
+	if err != nil {
+		return nil, fmt.Errorf("unable to create runtime security client: %w", err)
+	}
+	defer client.Close()
+
+	response, err := client.GetLoadedPolicies(true)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get loaded policies (is system-probe running?): %w", err)
+	}
+	if response.Error != "" {
+		return nil, fmt.Errorf("get loaded policies request failed: %s", response.Error)
+	}
+	return []byte(response.Policies), nil
+}
+
+// newRuntimeSecurityCmdClient is a package-level indirection so tests can stub the gRPC client.
+var newRuntimeSecurityCmdClient = func() (runtimeSecurityCmdClient, error) {
+	return secagent.NewRuntimeSecurityCmdClient()
+}
+
+// runtimeSecurityCmdClient is the subset of secagent.SecurityModuleCmdClientWrapper used here.
+type runtimeSecurityCmdClient interface {
+	GetLoadedPolicies(includeBundled bool) (*secagentapi.GetLoadedPoliciesMessage, error)
+	Close()
 }
 
 func (r *RemoteFlareProvider) provideRemoteConfig(ctx context.Context, fb flaretypes.FlareBuilder) error {
