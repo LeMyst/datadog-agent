@@ -60,9 +60,9 @@ func (t *WindowsEventLogChannelsIssue) BuildIssue(context map[string]string) (*h
 			Summary: "Verify that the channel_path values in the Windows Event Log integration configuration match channels that exist on this host.",
 			Steps: []*healthplatform.RemediationStep{
 				{Order: 1, Text: "List all available channels on this host: wevtutil el"},
-				{Order: 2, Text: fmt.Sprintf("Verify channel names in conf.d/%s", configFile)},
+				{Order: 2, Text: "Verify channel names in conf.d/" + configFile},
 				{Order: 3, Text: "Common built-in channels: System, Application, Security, Microsoft-Windows-PowerShell/Operational"},
-				{Order: 4, Text: fmt.Sprintf("Fix any typos in the channel_path values for: %s", invalidChannels)},
+				{Order: 4, Text: "Fix any typos in the channel_path values for: " + invalidChannels},
 			},
 		},
 		Tags: []string{"windows-event-log", "configuration", "win32_event_log"},

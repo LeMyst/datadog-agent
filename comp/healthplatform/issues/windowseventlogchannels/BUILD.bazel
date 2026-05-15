@@ -12,14 +12,60 @@ go_library(
     importpath = "github.com/DataDog/datadog-agent/comp/healthplatform/issues/windowseventlogchannels",
     visibility = ["//visibility:public"],
     deps = [
-        "//comp/core/config",
-        "//comp/healthplatform/issues",
-        "//pkg/util/log",
         "@com_github_datadog_agent_payload_v5//healthplatform",
         "@org_golang_google_protobuf//types/known/structpb",
-        "@in_gopkg_yaml_v2//:yaml_v2",
     ] + select({
-        "@rules_go//go/platform:windows": [],
+        "@rules_go//go/platform:aix": [
+            "//comp/core/config",
+        ],
+        "@rules_go//go/platform:android": [
+            "//comp/core/config",
+        ],
+        "@rules_go//go/platform:darwin": [
+            "//comp/core/config",
+        ],
+        "@rules_go//go/platform:dragonfly": [
+            "//comp/core/config",
+        ],
+        "@rules_go//go/platform:freebsd": [
+            "//comp/core/config",
+        ],
+        "@rules_go//go/platform:illumos": [
+            "//comp/core/config",
+        ],
+        "@rules_go//go/platform:ios": [
+            "//comp/core/config",
+        ],
+        "@rules_go//go/platform:js": [
+            "//comp/core/config",
+        ],
+        "@rules_go//go/platform:linux": [
+            "//comp/core/config",
+        ],
+        "@rules_go//go/platform:netbsd": [
+            "//comp/core/config",
+        ],
+        "@rules_go//go/platform:openbsd": [
+            "//comp/core/config",
+        ],
+        "@rules_go//go/platform:osx": [
+            "//comp/core/config",
+        ],
+        "@rules_go//go/platform:plan9": [
+            "//comp/core/config",
+        ],
+        "@rules_go//go/platform:qnx": [
+            "//comp/core/config",
+        ],
+        "@rules_go//go/platform:solaris": [
+            "//comp/core/config",
+        ],
+        "@rules_go//go/platform:windows": [
+            "//comp/core/config",
+            "//comp/healthplatform/issues",
+            "//pkg/util/log",
+            "@in_gopkg_yaml_v3//:yaml_v3",
+        ],
         "//conditions:default": [],
     }),
 )
