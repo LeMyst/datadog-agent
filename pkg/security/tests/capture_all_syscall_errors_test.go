@@ -74,3 +74,49 @@ func TestCaptureAllSyscallErrors(t *testing.T) {
 	})
 
 }
+
+func TestCaptureAllSyscallErrorsDisabledByDefault(t *testing.T) {
+	SkipIfNotAvailable(t)
+
+	ruleDefs := []*rules.RuleDefinition{
+		{
+			ID:         "test_chmod_capture_enoent",
+			Expression: `chmod.syscall.path == "{{.Root}}/does-not-exist" && chmod.retval == -2`,
+		},
+		{
+			ID:         "test_open_capture_enoent",
+			Expression: `open.syscall.path == "{{.Root}}/does-not-exist" && open.retval == -2`,
+		},
+	}
+
+	// captureAllSyscallErrorsEnabled is intentionally left at its zero value
+	// (false) to exercise the default kernel-side filtering behavior.
+	test, err := newTestModule(t, nil, ruleDefs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer test.Close()
+
+	syscallTester, err := loadSyscallTester(t, test, "syscall_tester")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	path := filepath.Join(test.Root(), "does-not-exist")
+
+	t.Run("chmod-enoent-dropped", func(t *testing.T) {
+		_ = test.GetSignal(t, func() error {
+			return runSyscallTesterFunc(context.Background(), t, syscallTester, "chmod-error", path)
+		}, func(_ *model.Event, rule *rules.Rule) {
+			t.Errorf("unexpected event for chmod ENOENT (rule %q): the kernel should have dropped it", rule.ID)
+		})
+	})
+
+	t.Run("open-enoent-dropped", func(t *testing.T) {
+		_ = test.GetSignal(t, func() error {
+			return runSyscallTesterFunc(context.Background(), t, syscallTester, "open-error", path)
+		}, func(_ *model.Event, rule *rules.Rule) {
+			t.Errorf("unexpected event for open ENOENT (rule %q): the kernel should have dropped it", rule.ID)
+		})
+	})
+}
