@@ -249,8 +249,9 @@ int __attribute__((always_inline)) _sys_open_ret(void *ctx, struct syscall_cache
         .flags = syscall->open.flags,
         .mode = syscall->open.mode,
     };
-
-    fill_file(syscall->open.dentry, &event.file);
+    if (syscall->open.dentry) {
+        fill_file(syscall->open.dentry, &event.file);
+    }
 
     // cgroup internal event, allow only dir event
     if (syscall->state == INTERNAL && !S_ISDIR(event.file.metadata.mode)) {
@@ -273,7 +274,7 @@ int __attribute__((always_inline)) _sys_open_ret(void *ctx, struct syscall_cache
 
 TAIL_CALL_FNC(sys_open_ret_cb, void *ctx) {
     struct syscall_cache_t *syscall = pop_syscall(EVENT_OPEN);
-    if (!syscall || !syscall->open.dentry) {
+    if (!syscall) {
         return 0;
     }
     return _sys_open_ret(ctx, syscall);
@@ -322,7 +323,7 @@ HOOK_SYSCALL_EXIT(openat2) {
 
 TAIL_CALL_TRACEPOINT_FNC(handle_sys_open_exit, struct tracepoint_raw_syscalls_sys_exit_t *args) {
     struct syscall_cache_t *syscall = pop_syscall(EVENT_OPEN);
-    if (!syscall || !syscall->open.dentry) {
+    if (!syscall) {
         return 0;
     }
     syscall->retval = args->ret;
