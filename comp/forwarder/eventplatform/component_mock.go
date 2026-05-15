@@ -8,6 +8,7 @@
 package eventplatform
 
 // Mock implements mock-specific methods.
+// Deprecated: use comp/forwarder/eventplatform/mock instead.
 type Mock interface {
 	Component
 }

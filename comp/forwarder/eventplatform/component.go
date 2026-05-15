@@ -4,56 +4,69 @@
 // Copyright 2016-present Datadog, Inc.
 
 // Package eventplatform contains the logic for forwarding events to the event platform
+// Deprecated: use comp/forwarder/eventplatform/def instead.
 package eventplatform
 
 import (
-	"github.com/DataDog/datadog-agent/pkg/logs/message"
+	def "github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/def"
 )
 
 // team: agent-log-pipelines
 
 const (
 	// EventTypeNetworkDevicesMetadata is the event type for network devices metadata
-	EventTypeNetworkDevicesMetadata = "network-devices-metadata"
+	// Deprecated: use comp/forwarder/eventplatform/def instead.
+	EventTypeNetworkDevicesMetadata = def.EventTypeNetworkDevicesMetadata
 
 	// EventTypeSnmpTraps is the event type for snmp traps
-	EventTypeSnmpTraps = "network-devices-snmp-traps"
+	// Deprecated: use comp/forwarder/eventplatform/def instead.
+	EventTypeSnmpTraps = def.EventTypeSnmpTraps
 
 	// EventTypeNetworkDevicesNetFlow is the event type for network devices NetFlow data
-	EventTypeNetworkDevicesNetFlow = "network-devices-netflow"
+	// Deprecated: use comp/forwarder/eventplatform/def instead.
+	EventTypeNetworkDevicesNetFlow = def.EventTypeNetworkDevicesNetFlow
 
 	// EventTypeNetworkPath is the event type for network devices Network Path data
-	EventTypeNetworkPath = "network-path"
+	// Deprecated: use comp/forwarder/eventplatform/def instead.
+	EventTypeNetworkPath = def.EventTypeNetworkPath
 
 	// EventTypeSynthetics is the event type for Synthetics test results
-	EventTypeSynthetics = "synthetics"
+	// Deprecated: use comp/forwarder/eventplatform/def instead.
+	EventTypeSynthetics = def.EventTypeSynthetics
 
 	// EventTypeNetworkConfigManagement is the event type for network device configuration management
-	EventTypeNetworkConfigManagement = "ndmconfig"
+	// Deprecated: use comp/forwarder/eventplatform/def instead.
+	EventTypeNetworkConfigManagement = def.EventTypeNetworkConfigManagement
 
 	// EventTypeContainerLifecycle represents a container lifecycle event
-	EventTypeContainerLifecycle = "container-lifecycle"
+	// Deprecated: use comp/forwarder/eventplatform/def instead.
+	EventTypeContainerLifecycle = def.EventTypeContainerLifecycle
+
 	// EventTypeContainerImages represents a container images event
-	EventTypeContainerImages = "container-images"
+	// Deprecated: use comp/forwarder/eventplatform/def instead.
+	EventTypeContainerImages = def.EventTypeContainerImages
+
 	// EventTypeContainerSBOM represents a container SBOM event
-	EventTypeContainerSBOM = "container-sbom"
+	// Deprecated: use comp/forwarder/eventplatform/def instead.
+	EventTypeContainerSBOM = def.EventTypeContainerSBOM
+
 	// EventTypeSoftwareInventory represents a software inventory event
-	EventTypeSoftwareInventory = "software-inventory"
+	// Deprecated: use comp/forwarder/eventplatform/def instead.
+	EventTypeSoftwareInventory = def.EventTypeSoftwareInventory
+
 	// EventTypeEventManagement represents an event for the Event Management API
-	EventTypeEventManagement = "event-management"
+	// Deprecated: use comp/forwarder/eventplatform/def instead.
+	EventTypeEventManagement = def.EventTypeEventManagement
+
 	// EventTypeKubeActions represents a kubernetes action result event
-	EventTypeKubeActions = "kube-actions"
+	// Deprecated: use comp/forwarder/eventplatform/def instead.
+	EventTypeKubeActions = def.EventTypeKubeActions
 )
 
 // Component is the interface of the event platform forwarder component.
-type Component interface {
-	// Get the forwarder instance if it exists.
-	Get() (Forwarder, bool)
-}
+// Deprecated: use comp/forwarder/eventplatform/def instead.
+type Component = def.Component
 
 // Forwarder is the interface of the event platform forwarder.
-type Forwarder interface {
-	SendEventPlatformEvent(e *message.Message, eventType string) error
-	SendEventPlatformEventBlocking(e *message.Message, eventType string) error
-	Purge() map[string][]*message.Message
-}
+// Deprecated: use comp/forwarder/eventplatform/def instead.
+type Forwarder = def.Forwarder
