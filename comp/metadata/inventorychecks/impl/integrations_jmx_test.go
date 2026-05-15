@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/DataDog/datadog-agent/comp/collector/collector"
-	logagent "github.com/DataDog/datadog-agent/comp/logs/agent"
+	logagent "github.com/DataDog/datadog-agent/comp/logs/agent/def"
 	"github.com/DataDog/datadog-agent/pkg/util/option"
 )
 
