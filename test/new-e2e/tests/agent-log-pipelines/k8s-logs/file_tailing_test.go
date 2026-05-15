@@ -40,7 +40,7 @@ func (v *k8sSuite) TestSingleLogAndMetadata() {
 	var backOffLimit int32 = 4
 	testLogMessage := "Test log message"
 
-	jobSpcec := &batchv1.Job{
+	jobSpec := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "job-1",
 			Namespace: "default",
@@ -64,7 +64,7 @@ func (v *k8sSuite) TestSingleLogAndMetadata() {
 		},
 	}
 
-	_, err = v.Env().KubernetesCluster.Client().BatchV1().Jobs("default").Create(context.TODO(), jobSpcec, metav1.CreateOptions{})
+	_, err = v.Env().KubernetesCluster.Client().BatchV1().Jobs("default").Create(context.TODO(), jobSpec, metav1.CreateOptions{})
 	require.NoError(v.T(), err, "Could not create job")
 
 	_, err = k8sutils.WaitForJobPodRunning(context.TODO(), v.Env().KubernetesCluster.Client(), "default", "job-1", 30*time.Second)
@@ -81,9 +81,8 @@ func (v *k8sSuite) TestSingleLogAndMetadata() {
 
 		if !slices.Contains(logsServiceNames, "ubuntu") {
 			assert.Fail(c, "Ubuntu service not found",
-				"Known services: %v\n%s\n%s",
-				logsServiceNames, fakeintakeRouteStats(v.Env().FakeIntake),
-				k8sutils.DescribeJob(context.TODO(), v.Env().KubernetesCluster.Client(), "default", "job-1"))
+				"Known services: %q\n%s",
+				logsServiceNames, fakeintakeRouteStats(v.Env().FakeIntake))
 			return
 		}
 
@@ -108,7 +107,7 @@ func (v *k8sSuite) TestLongLogLine() {
 	require.NoError(v.T(), err, "Could not reset the FakeIntake")
 	var backOffLimit int32 = 4
 
-	jobSpcec := &batchv1.Job{
+	jobSpec := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "long-line-job",
 			Namespace: "default",
@@ -132,7 +131,7 @@ func (v *k8sSuite) TestLongLogLine() {
 		},
 	}
 
-	_, err = v.Env().KubernetesCluster.Client().BatchV1().Jobs("default").Create(context.TODO(), jobSpcec, metav1.CreateOptions{})
+	_, err = v.Env().KubernetesCluster.Client().BatchV1().Jobs("default").Create(context.TODO(), jobSpec, metav1.CreateOptions{})
 	require.NoError(v.T(), err, "Could not create job")
 
 	_, err = k8sutils.WaitForJobPodRunning(context.TODO(), v.Env().KubernetesCluster.Client(), "default", "long-line-job", 30*time.Second)
@@ -149,9 +148,8 @@ func (v *k8sSuite) TestLongLogLine() {
 
 		if !slices.Contains(logsServiceNames, "ubuntu") {
 			assert.Fail(c, "Ubuntu service not found",
-				"Known services: %v\n%s\n%s",
-				logsServiceNames, fakeintakeRouteStats(v.Env().FakeIntake),
-				k8sutils.DescribeJob(context.TODO(), v.Env().KubernetesCluster.Client(), "default", "long-line-job"))
+				"Known services: %q\n%s",
+				logsServiceNames, fakeintakeRouteStats(v.Env().FakeIntake))
 			return
 		}
 
@@ -182,7 +180,7 @@ func (v *k8sSuite) TestContainerExclude() {
 	var backOffLimit int32 = 4
 	testLogMessage := "Test log message here"
 
-	jobSpcec := &batchv1.Job{
+	jobSpec := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "exclude-job",
 			Namespace: namespaceName,
@@ -206,7 +204,7 @@ func (v *k8sSuite) TestContainerExclude() {
 		},
 	}
 
-	_, err = v.Env().KubernetesCluster.Client().BatchV1().Jobs(namespaceName).Create(context.TODO(), jobSpcec, metav1.CreateOptions{})
+	_, err = v.Env().KubernetesCluster.Client().BatchV1().Jobs(namespaceName).Create(context.TODO(), jobSpec, metav1.CreateOptions{})
 	require.NoError(v.T(), err, "Could not create job")
 
 	_, err = k8sutils.WaitForJobPodRunning(context.TODO(), v.Env().KubernetesCluster.Client(), namespaceName, "exclude-job", 30*time.Second)

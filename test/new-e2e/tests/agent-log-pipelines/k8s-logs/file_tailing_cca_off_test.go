@@ -39,7 +39,7 @@ func (v *k8sCCAOffSuite) TestADAnnotations() {
 	var backOffLimit int32 = 4
 	testLogMessage := "Annotations pod"
 
-	jobSpcec := &batchv1.Job{
+	jobSpec := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "annotations-job",
 			Namespace: "default",
@@ -68,7 +68,7 @@ func (v *k8sCCAOffSuite) TestADAnnotations() {
 		},
 	}
 
-	_, err = v.Env().KubernetesCluster.Client().BatchV1().Jobs("default").Create(context.TODO(), jobSpcec, metav1.CreateOptions{})
+	_, err = v.Env().KubernetesCluster.Client().BatchV1().Jobs("default").Create(context.TODO(), jobSpec, metav1.CreateOptions{})
 	require.NoError(v.T(), err, "Could not create autodiscovery job")
 
 	_, err = k8sutils.WaitForJobPodRunning(context.TODO(), v.Env().KubernetesCluster.Client(), "default", "annotations-job", 30*time.Second)
@@ -85,9 +85,8 @@ func (v *k8sCCAOffSuite) TestADAnnotations() {
 
 		if !slices.Contains(logsServiceNames, "ubuntu") {
 			assert.Fail(c, "Ubuntu service not found",
-				"Known services: %v\n%s\n%s",
-				logsServiceNames, fakeintakeRouteStats(v.Env().FakeIntake),
-				k8sutils.DescribeJob(context.TODO(), v.Env().KubernetesCluster.Client(), "default", "annotations-job"))
+				"Known services: %q\n%s",
+				logsServiceNames, fakeintakeRouteStats(v.Env().FakeIntake))
 			return
 		}
 
@@ -107,7 +106,7 @@ func (v *k8sCCAOffSuite) TestCCAOff() {
 	var backOffLimit int32 = 4
 	testLogMessage := "Test pod"
 
-	jobSpcec := &batchv1.Job{
+	jobSpec := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cca-off-job",
 			Namespace: "default",
@@ -131,7 +130,7 @@ func (v *k8sCCAOffSuite) TestCCAOff() {
 		},
 	}
 
-	_, err = v.Env().KubernetesCluster.Client().BatchV1().Jobs("default").Create(context.TODO(), jobSpcec, metav1.CreateOptions{})
+	_, err = v.Env().KubernetesCluster.Client().BatchV1().Jobs("default").Create(context.TODO(), jobSpec, metav1.CreateOptions{})
 	require.NoError(v.T(), err, "Could not create CCA-off job")
 
 	_, err = k8sutils.WaitForJobPodRunning(context.TODO(), v.Env().KubernetesCluster.Client(), "default", "cca-off-job", 30*time.Second)
