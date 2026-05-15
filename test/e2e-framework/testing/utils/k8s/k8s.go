@@ -8,6 +8,7 @@ package k8s
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -189,7 +190,6 @@ func WaitForJobPodRunning(ctx context.Context, client kubernetes.Interface, name
 			}
 			continue
 		}
-		lastListErr = nil
 
 		for i := range pods.Items {
 			pod := &pods.Items[i]
@@ -222,7 +222,7 @@ func WaitForJobPodRunning(ctx context.Context, client kubernetes.Interface, name
 				if lastListErr != nil {
 					msg += fmt.Sprintf(" (last list error: %v)", lastListErr)
 				}
-				return nil, fmt.Errorf("%s", msg)
+				return nil, errors.New(msg)
 			}
 			pod := &pods.Items[0]
 			return nil, fmt.Errorf("job %s pod %s still pending after %s (phase=%s, reason=%s, message=%s)",
