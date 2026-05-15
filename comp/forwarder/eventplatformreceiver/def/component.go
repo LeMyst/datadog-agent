@@ -4,17 +4,19 @@
 // Copyright 2024-present Datadog, Inc.
 
 // Package eventplatformreceiver implements the receiver for the event platform package
-//
-// Deprecated: use comp/forwarder/eventplatformreceiver/def instead.
 package eventplatformreceiver
 
 import (
-	eventplatformreceiver "github.com/DataDog/datadog-agent/comp/forwarder/eventplatformreceiver/def"
+	"github.com/DataDog/datadog-agent/pkg/logs/diagnostic"
+	"github.com/DataDog/datadog-agent/pkg/logs/message"
 )
 
 // team: agent-log-pipelines
 
 // Component is the component type.
-//
-// Deprecated: use comp/forwarder/eventplatformreceiver/def.Component instead.
-type Component = eventplatformreceiver.Component
+type Component interface {
+	SetEnabled(e bool) bool
+	IsEnabled() bool
+	HandleMessage(m *message.Message, rendered []byte, eventType string)
+	Filter(filters *diagnostic.Filters, done <-chan struct{}) <-chan string
+}

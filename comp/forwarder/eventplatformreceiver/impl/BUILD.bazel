@@ -1,13 +1,12 @@
 load("@rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "eventplatformreceiverimpl",
+    name = "impl",
     srcs = [
         "eventplatformreceiver.go",
         "format.go",
-        "mock.go",
     ],
-    importpath = "github.com/DataDog/datadog-agent/comp/forwarder/eventplatformreceiver/eventplatformreceiverimpl",
+    importpath = "github.com/DataDog/datadog-agent/comp/forwarder/eventplatformreceiver/impl",
     visibility = ["//visibility:public"],
     deps = [
         "//comp/api/api/def",

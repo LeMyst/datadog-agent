@@ -5,18 +5,19 @@
 
 //go:build test
 
-package eventplatformreceiverimpl
+// Package mock provides a mock eventplatformreceiver component.
+package mock
 
 import (
 	"go.uber.org/fx"
 
-	eprinterface "github.com/DataDog/datadog-agent/comp/forwarder/eventplatformreceiver/def"
+	eprdef "github.com/DataDog/datadog-agent/comp/forwarder/eventplatformreceiver/def"
 	"github.com/DataDog/datadog-agent/pkg/logs/diagnostic"
 	"github.com/DataDog/datadog-agent/pkg/logs/message"
 	"github.com/DataDog/datadog-agent/pkg/util/fxutil"
 )
 
-// MockModule defines the fx options for the mocked component
+// MockModule defines the fx options for the mocked component.
 func MockModule() fxutil.Module {
 	return fxutil.Component(
 		fx.Provide(newMock))
@@ -26,7 +27,7 @@ func MockModule() fxutil.Module {
 type MockProvides struct {
 	fx.Out
 
-	Comp eprinterface.Component
+	Comp eprdef.Component
 }
 
 // MockEventPlatformReceiver is the mocked struct that implements the eventplatformreceiver interface

@@ -10,6 +10,8 @@ package eventplatformreceiver
 // team: agent-log-pipelines
 
 // Mock is the component type.
+//
+// Deprecated: use comp/forwarder/eventplatformreceiver/mock instead.
 type Mock interface {
 	Component
 }
