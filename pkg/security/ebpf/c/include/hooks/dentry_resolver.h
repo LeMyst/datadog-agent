@@ -108,7 +108,7 @@ int __attribute__((always_inline)) resolve_dentry_tail_call(void *ctx, struct de
 
         // check parent basename approver: at i == 1 map_value.name holds the leaf's parent name,
         // and iteration == 1 keeps the lookup to the first tail call so we only check it once.
-        if (input->iteration == 1 && i == 1) {
+        if (input->iteration == 1 && i == 1 && input->event_type) {
             bpf_probe_read_str(basename.value, sizeof(basename.value), map_value.name);
             if (is_basename_in_map(&basename, input->event_type)) {
                 input->flags |= DENTRY_BASENAME_APPROVED;
