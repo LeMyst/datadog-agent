@@ -592,7 +592,6 @@ exports_files(glob(
 # gazelle:exclude pkg/process/metadata
 # gazelle:exclude pkg/process/monitor
 # gazelle:exclude pkg/process/net
-# gazelle:exclude pkg/process/procutil
 # gazelle:exclude pkg/process/runner/mocks
 # gazelle:exclude pkg/process/subscribers
 # gazelle:exclude pkg/process/util/containers
@@ -654,7 +653,6 @@ exports_files(glob(
 # gazelle:exclude pkg/system-probe/api/client/check_test.go
 # gazelle:exclude pkg/system-probe/api/module
 # gazelle:exclude pkg/system-probe/api/server/testutil
-# gazelle:exclude pkg/util/cloudproviders/gce
 # gazelle:exclude pkg/util/cloudproviders/kubernetes
 # gazelle:exclude pkg/util/cloudproviders/network
 # gazelle:exclude pkg/util/clusteragent
@@ -685,7 +683,6 @@ exports_files(glob(
 # gazelle:exclude pkg/util/kubernetes/clustername
 # gazelle:exclude pkg/util/kubernetes/hostinfo
 # gazelle:exclude pkg/util/kubernetes/kubelet
-# gazelle:exclude pkg/util/port
 # gazelle:exclude pkg/util/tags
 # gazelle:exclude pkg/windowsdriver/ddinjector
 # gazelle:exclude tasks/unit_tests
