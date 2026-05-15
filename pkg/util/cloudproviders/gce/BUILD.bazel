@@ -27,6 +27,7 @@ go_test(
         "gce_tags_test.go",
         "gce_test.go",
     ],
+
     data = glob(["testdata/**"]),
     embed = [":gce"],
     gotags = ["test"],
