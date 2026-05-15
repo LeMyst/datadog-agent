@@ -22,7 +22,7 @@ import (
 
 // TestCaptureAllSyscallErrors verifies that with
 // runtime_security_config.syscalls.capture_all_errors.enabled set to true,
-// chmod() and open() syscalls failing with -ENOENT (normally filtered by
+// chmod() and open() syscalls failing with ENOENT (normally filtered by
 // IS_UNHANDLED_ERROR) still produce events in userspace.
 func TestCaptureAllSyscallErrors(t *testing.T) {
 	SkipIfNotAvailable(t)
@@ -31,11 +31,11 @@ func TestCaptureAllSyscallErrors(t *testing.T) {
 		// To access the path, we need to use the syscall context instead of the chmod event
 		{
 			ID:         "test_chmod_capture_enoent",
-			Expression: `chmod.syscall.path == "{{.Root}}/does-not-exist" && chmod.retval == -2`,
+			Expression: `chmod.syscall.path == "{{.Root}}/does-not-exist" && chmod.retval == ENOENT`,
 		},
 		{
 			ID:         "test_open_capture_enoent",
-			Expression: `open.syscall.path == "{{.Root}}/does-not-exist" && open.retval == -2`,
+			Expression: `open.syscall.path == "{{.Root}}/does-not-exist" && open.retval == ENOENT`,
 		},
 	}
 
@@ -81,16 +81,15 @@ func TestCaptureAllSyscallErrorsDisabledByDefault(t *testing.T) {
 	ruleDefs := []*rules.RuleDefinition{
 		{
 			ID:         "test_chmod_capture_enoent",
-			Expression: `chmod.syscall.path == "{{.Root}}/does-not-exist" && chmod.retval == -2`,
+			Expression: `chmod.syscall.path == "{{.Root}}/does-not-exist" && chmod.retval == ENOENT`,
 		},
 		{
 			ID:         "test_open_capture_enoent",
-			Expression: `open.syscall.path == "{{.Root}}/does-not-exist" && open.retval == -2`,
+			Expression: `open.syscall.path == "{{.Root}}/does-not-exist" && open.retval == ENOENT`,
 		},
 	}
 
-	// captureAllSyscallErrorsEnabled is intentionally left at its zero value
-	// (false) to exercise the default kernel-side filtering behavior.
+	// captureAllSyscallErrorsEnabled is intentionally left at its zero value (false)
 	test, err := newTestModule(t, nil, ruleDefs)
 	if err != nil {
 		t.Fatal(err)
