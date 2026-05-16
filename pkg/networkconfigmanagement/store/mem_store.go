@@ -40,7 +40,7 @@ func (m *memConfigStore) Close(_ context.Context) error {
 
 // StoreConfig stores a device configuration, deduplicating against the latest stored config for the same device+type.
 func (m *memConfigStore) StoreConfig(deviceID string, configType types.ConfigType, rawConfig string) (string, error) {
-	rawHash := hashConfig(rawConfig)
+	rawHash := HashConfig(rawConfig)
 	now := time.Now().Unix()
 
 	m.lock.Lock()
