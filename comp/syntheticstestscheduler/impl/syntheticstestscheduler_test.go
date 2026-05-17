@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/DataDog/datadog-agent/comp/core/hostname/hostnameinterface"
-	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform"
+	eventplatform "github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/def"
 	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/impl"
 	"github.com/DataDog/datadog-agent/comp/syntheticstestscheduler/common"
 	configmock "github.com/DataDog/datadog-agent/pkg/config/mock"

@@ -13,7 +13,7 @@ import (
 	"github.com/DataDog/datadog-agent/comp/aggregator/demultiplexer"
 	log "github.com/DataDog/datadog-agent/comp/core/log/def"
 	compdef "github.com/DataDog/datadog-agent/comp/def"
-	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform"
+	eventplatform "github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/def"
 	config "github.com/DataDog/datadog-agent/comp/snmptraps/config/def"
 	formatter "github.com/DataDog/datadog-agent/comp/snmptraps/formatter/def"
 	forwarder "github.com/DataDog/datadog-agent/comp/snmptraps/forwarder/def"

@@ -17,7 +17,7 @@ import (
 	noopimpl "github.com/DataDog/datadog-agent/comp/core/tagger/impl-noop"
 	filterlist "github.com/DataDog/datadog-agent/comp/filterlist/impl"
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
-	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform"
+	eventplatform "github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/def"
 	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/impl"
 	haagentmock "github.com/DataDog/datadog-agent/comp/haagent/mock"
 	logscompression "github.com/DataDog/datadog-agent/comp/serializer/logscompression/def"

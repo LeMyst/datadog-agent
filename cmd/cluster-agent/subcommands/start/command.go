@@ -62,7 +62,7 @@ import (
 	filterlistfx "github.com/DataDog/datadog-agent/comp/filterlist/fx"
 	"github.com/DataDog/datadog-agent/comp/forwarder"
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
-	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform"
+	eventplatform "github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/def"
 	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/impl"
 	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatformreceiver/eventplatformreceiverimpl"
 	orchestratorForwarderImpl "github.com/DataDog/datadog-agent/comp/forwarder/orchestrator/orchestratorimpl"

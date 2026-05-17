@@ -28,7 +28,7 @@ import (
 	filterlistmock "github.com/DataDog/datadog-agent/comp/filterlist/fx-mock"
 	filterlistimpl "github.com/DataDog/datadog-agent/comp/filterlist/impl"
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
-	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform"
+	eventplatform "github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/def"
 	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/impl"
 	orchestratorforwarder "github.com/DataDog/datadog-agent/comp/forwarder/orchestrator"
 	"github.com/DataDog/datadog-agent/comp/forwarder/orchestrator/orchestratorimpl"

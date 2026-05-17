@@ -16,7 +16,7 @@ import (
 	logimpl "github.com/DataDog/datadog-agent/comp/core/log/impl"
 	nooptagger "github.com/DataDog/datadog-agent/comp/core/tagger/impl-noop"
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
-	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform"
+	eventplatform "github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/def"
 	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/impl"
 
 	filterlist "github.com/DataDog/datadog-agent/comp/filterlist/impl"

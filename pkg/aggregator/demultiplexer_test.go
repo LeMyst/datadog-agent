@@ -23,7 +23,7 @@ import (
 	filterlist "github.com/DataDog/datadog-agent/comp/filterlist/def"
 	filterlistfx "github.com/DataDog/datadog-agent/comp/filterlist/fx"
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
-	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform"
+	eventplatform "github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/def"
 	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/impl"
 	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatformreceiver/eventplatformreceiverimpl"
 	orchestratorForwarder "github.com/DataDog/datadog-agent/comp/forwarder/orchestrator"

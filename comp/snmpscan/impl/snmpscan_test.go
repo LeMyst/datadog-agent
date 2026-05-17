@@ -13,7 +13,7 @@ import (
 	"github.com/DataDog/datadog-agent/comp/core"
 	"github.com/DataDog/datadog-agent/comp/core/hostname/hostnameimpl"
 	logmock "github.com/DataDog/datadog-agent/comp/core/log/mock"
-	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform"
+	eventplatform "github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/def"
 	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/impl"
 	logscomp "github.com/DataDog/datadog-agent/comp/serializer/logscompression/fx-mock"
 	"github.com/DataDog/datadog-agent/pkg/util/fxutil"

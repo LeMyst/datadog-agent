@@ -17,7 +17,7 @@ import (
 
 	"github.com/DataDog/datadog-agent/comp/core/hostname/hostnameimpl"
 	hostnameinterface "github.com/DataDog/datadog-agent/comp/core/hostname/hostnameinterface"
-	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform"
+	eventplatform "github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/def"
 	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/impl"
 	logscompression "github.com/DataDog/datadog-agent/comp/serializer/logscompression/def"
 	logscompressionmock "github.com/DataDog/datadog-agent/comp/serializer/logscompression/fx-mock"

@@ -29,7 +29,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	configComponent "github.com/DataDog/datadog-agent/comp/core/config"
-	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform"
+	eventplatform "github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/def"
 	"github.com/DataDog/datadog-agent/comp/forwarder/eventplatform/impl"
 	"github.com/DataDog/datadog-agent/comp/networkpath/npcollector/impl/common"
 	"github.com/DataDog/datadog-agent/comp/networkpath/npcollector/impl/connfilter"
