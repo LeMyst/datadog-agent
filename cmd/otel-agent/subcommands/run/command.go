@@ -40,7 +40,7 @@ import (
 	tagger "github.com/DataDog/datadog-agent/comp/core/tagger/def"
 	taggerfx "github.com/DataDog/datadog-agent/comp/core/tagger/fx"
 	remoteTaggerFx "github.com/DataDog/datadog-agent/comp/core/tagger/fx-optional-remote"
-	"github.com/DataDog/datadog-agent/comp/core/telemetry/telemetryimpl"
+	telemetryfx "github.com/DataDog/datadog-agent/comp/core/telemetry/fx"
 	workloadfilterfx "github.com/DataDog/datadog-agent/comp/core/workloadfilter/fx"
 	wmcatalog "github.com/DataDog/datadog-agent/comp/core/workloadmeta/collectors/catalog-otel"
 	workloadmeta "github.com/DataDog/datadog-agent/comp/core/workloadmeta/def"
@@ -51,18 +51,18 @@ import (
 	"github.com/DataDog/datadog-agent/comp/forwarder/defaultforwarder"
 	"github.com/DataDog/datadog-agent/comp/forwarder/orchestrator/orchestratorinterface"
 	logconfig "github.com/DataDog/datadog-agent/comp/logs/agent/config"
-	"github.com/DataDog/datadog-agent/comp/metadata/host/hostimpl"
-	"github.com/DataDog/datadog-agent/comp/metadata/inventoryagent/inventoryagentimpl"
-	"github.com/DataDog/datadog-agent/comp/metadata/inventoryhost/inventoryhostimpl"
-	"github.com/DataDog/datadog-agent/comp/metadata/runner/runnerimpl"
+	hostfx "github.com/DataDog/datadog-agent/comp/metadata/host/fx"
+	inventoryagentfx "github.com/DataDog/datadog-agent/comp/metadata/inventoryagent/fx"
+	inventoryhostfx "github.com/DataDog/datadog-agent/comp/metadata/inventoryhost/fx"
+	runnerfx "github.com/DataDog/datadog-agent/comp/metadata/runner/fx"
 	collectorcontribFx "github.com/DataDog/datadog-agent/comp/otelcol/collector-contrib/fx"
 	collectordef "github.com/DataDog/datadog-agent/comp/otelcol/collector/def"
 	collectorfx "github.com/DataDog/datadog-agent/comp/otelcol/collector/fx"
 	collectorimpl "github.com/DataDog/datadog-agent/comp/otelcol/collector/impl"
 	converter "github.com/DataDog/datadog-agent/comp/otelcol/converter/def"
 	converterfx "github.com/DataDog/datadog-agent/comp/otelcol/converter/fx"
-	"github.com/DataDog/datadog-agent/comp/otelcol/logsagentpipeline"
-	"github.com/DataDog/datadog-agent/comp/otelcol/logsagentpipeline/logsagentpipelineimpl"
+	logsagentpipeline "github.com/DataDog/datadog-agent/comp/otelcol/logsagentpipeline/def"
+	logsagentpipelinefx "github.com/DataDog/datadog-agent/comp/otelcol/logsagentpipeline/fx"
 	"github.com/DataDog/datadog-agent/comp/otelcol/otlp/components/exporter/serializerexporter"
 	"github.com/DataDog/datadog-agent/comp/otelcol/otlp/components/metricsclient"
 	logscompressionfx "github.com/DataDog/datadog-agent/comp/serializer/logscompression/fx"
@@ -150,7 +150,7 @@ func runOTelAgentCommand(ctx context.Context, params *cliParams, opts ...fx.Opti
 			fx.Provide(func(h hostnameinterface.Component) (serializerexporter.SourceProviderFunc, error) {
 				return h.Get, nil
 			}),
-			telemetryimpl.Module(),
+			telemetryfx.Module(),
 			remotehostnameimpl.Module(),
 			collectorcontribFx.Module(),
 			collectorfx.ModuleNoAgent(),
@@ -179,7 +179,7 @@ func commonAgentFxOptions(ctx context.Context, params *cliParams, acfg coreconfi
 	return fx.Options(
 		ForwarderBundle(),
 		logtracefx.Module(),
-		inventoryagentimpl.Module(),
+		inventoryagentfx.Module(),
 		fx.Supply(metricsclient.NewStatsdClientWrapper(&ddgostatsd.NoOpClient{})),
 		fx.Provide(func(client *metricsclient.StatsdClientWrapper) statsd.Component {
 			return statsdotel.NewOTelStatsd(client)
@@ -212,7 +212,7 @@ func commonAgentFxOptions(ctx context.Context, params *cliParams, acfg coreconfi
 		fx.Provide(func() logconfig.IntakeOrigin {
 			return logconfig.DDOTIntakeOrigin
 		}),
-		logsagentpipelineimpl.Module(),
+		logsagentpipelinefx.Module(),
 		logscompressionfx.Module(),
 		metricscompressionfx.Module(),
 		// For FX to provide the compression.Compressor interface (used by serializer.NewSerializer)
@@ -243,7 +243,7 @@ func commonAgentFxOptions(ctx context.Context, params *cliParams, acfg coreconfi
 		fx.Options(opts...),
 		fx.Invoke(func(_ collectordef.Component, _ defaultforwarder.Forwarder, _ option.Option[logsagentpipeline.Component], _ pid.Component) {
 		}),
-		telemetryimpl.Module(),
+		telemetryfx.Module(),
 		fx.Provide(func(cfg traceconfigdef.Component) telemetry.TelemetryCollector {
 			return telemetry.NewCollector(cfg.Object())
 		}),
@@ -284,9 +284,9 @@ func commonAgentFxOptions(ctx context.Context, params *cliParams, acfg coreconfi
 func standaloneAgentFxOptions(params *cliParams) fx.Option {
 	return fx.Options(
 		// Metadata collection (host inventory, runner) for dogtelextension
-		runnerimpl.Module(),
-		hostimpl.Module(),
-		inventoryhostimpl.Module(),
+		runnerfx.Module(),
+		hostfx.Module(),
+		inventoryhostfx.Module(),
 		// Real secrets backend so ENC[] handles in OTel/DD config are resolved locally
 		secretsfx.Module(),
 		// Resolve hostname locally; no core agent to ask

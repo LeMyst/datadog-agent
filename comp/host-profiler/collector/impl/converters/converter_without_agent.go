@@ -3,8 +3,6 @@
 // This product includes software developed at Datadog (https://www.datadoghq.com/).
 // Copyright 2025-present Datadog, Inc.
 
-//go:build linux
-
 // Package converters implements the converters for the host profiler collector.
 package converters
 
@@ -189,6 +187,7 @@ func (c *converterWithoutAgent) fixProcessorsPipeline(conf confMap, processorNam
 		return nil, err
 	}
 	foundResourcedetection := false
+	foundDDHostNameProcessor := false
 	toDelete := make(map[string]bool)
 
 	// remove infraattributes, track & sanitize resourcedetection
@@ -214,6 +213,10 @@ func (c *converterWithoutAgent) fixProcessorsPipeline(conf confMap, processorNam
 			}
 			foundResourcedetection = true
 		}
+
+		if isComponentType(name, componentTypeDDHostNameProcessor) {
+			foundDDHostNameProcessor = true
+		}
 	}
 
 	// Add resourcedetection/default if none found
@@ -223,6 +226,15 @@ func (c *converterWithoutAgent) fixProcessorsPipeline(conf confMap, processorNam
 		}
 		slog.Warn("Added minimal resourcedetection processor to user configuration")
 		processorNames = append(processorNames, defaultResourceDetectionName)
+	}
+
+	// Add ddhostname/default if none found
+	if !foundDDHostNameProcessor {
+		if err := Set(processors, defaultDDHostNameProcessorName, confMap{}); err != nil {
+			return nil, err
+		}
+		slog.Info("Added minimal ddhostname processor to user configuration")
+		processorNames = append(processorNames, defaultDDHostNameProcessorName)
 	}
 
 	// Remove processors marked for deletion
@@ -343,6 +355,10 @@ func (c *converterWithoutAgent) ensureOtlpHTTPExporterConfig(conf confMap, expor
 		if name, ok := nameAny.(string); ok && isComponentType(name, componentTypeOtlpHTTP) {
 			hasOtlpHTTP = true
 
+			if _, err := SetDefault(conf, pathPrefixExporters+name+"::compression", "zstd"); err != nil {
+				return err
+			}
+
 			headers, err := Ensure[confMap](conf, pathPrefixExporters+name+"::headers")
 			if err != nil {
 				return err
@@ -351,7 +367,7 @@ func (c *converterWithoutAgent) ensureOtlpHTTPExporterConfig(conf confMap, expor
 			if !ensureKeyStringValue(headers, fieldDDAPIKey) {
 				return fmt.Errorf("%s exporter missing required dd-api-key header", name)
 			}
-			if _, err := SetDefault(headers, fieldDDEVPOrigin, version.ProfilerName); err != nil {
+			if _, err := SetDefault(headers, fieldDDEVPOrigin, version.StandaloneProfilerName); err != nil {
 				return err
 			}
 			if _, err := SetDefault(headers, fieldDDEVPOriginVersion, version.ProfilerVersion); err != nil {

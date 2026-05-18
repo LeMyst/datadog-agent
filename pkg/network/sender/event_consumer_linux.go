@@ -8,6 +8,7 @@
 package sender
 
 import (
+	"bytes"
 	"os"
 	"strconv"
 	"sync"
@@ -15,10 +16,11 @@ import (
 	"time"
 
 	log "github.com/DataDog/datadog-agent/comp/core/log/def"
-	"github.com/DataDog/datadog-agent/comp/core/sysprobeconfig"
+	sysprobeconfig "github.com/DataDog/datadog-agent/comp/core/sysprobeconfig/def"
+	"github.com/DataDog/datadog-agent/comp/core/telemetry/def"
+	telemetryimpl "github.com/DataDog/datadog-agent/comp/core/telemetry/impl"
 	"github.com/DataDog/datadog-agent/pkg/eventmonitor"
 	"github.com/DataDog/datadog-agent/pkg/security/secl/model"
-	"github.com/DataDog/datadog-agent/pkg/telemetry"
 	"github.com/DataDog/datadog-agent/pkg/util/kernel"
 	logutil "github.com/DataDog/datadog-agent/pkg/util/log"
 	ddos "github.com/DataDog/datadog-agent/pkg/util/os"
@@ -30,8 +32,8 @@ var eventConsumerTelemetry = struct {
 	eventsReceived telemetry.Counter
 	processCount   telemetry.Gauge
 }{
-	telemetry.NewCounter(eventConsumerSubsystem, "events_received", []string{"event_type"}, ""),
-	telemetry.NewGauge(eventConsumerSubsystem, "process_count", nil, ""),
+	telemetryimpl.GetCompatComponent().NewCounter(eventConsumerSubsystem, "events_received", []string{"event_type"}, ""),
+	telemetryimpl.GetCompatComponent().NewGauge(eventConsumerSubsystem, "process_count", nil, ""),
 }
 
 var _ eventmonitor.EventConsumerHandler = &directSenderConsumer{}
@@ -46,19 +48,21 @@ type directSenderConsumer struct {
 	processes map[uint32]*process
 	mtx       sync.Mutex
 
-	proxyFilter  *dockerProxyFilter
-	extractor    *serviceExtractor
-	pidAliveFunc func(pid int) bool
+	proxyFilter          *dockerProxyFilter
+	extractor            *serviceExtractor
+	processNameExtractor *processNameExtractor
+	pidAliveFunc         func(pid int) bool
 }
 
 // NewDirectSenderConsumer creates the direct sender consumer and returns it for event monitor registration
 func NewDirectSenderConsumer(em EventConsumerRegistry, log log.Component, sysprobeconfig sysprobeconfig.Component) (eventmonitor.EventConsumer, error) {
 	dsc := &directSenderConsumer{
-		log:          log,
-		processes:    make(map[uint32]*process),
-		proxyFilter:  newDockerProxyFilter(log),
-		extractor:    newServiceExtractor(sysprobeconfig),
-		pidAliveFunc: ddos.PidExists,
+		log:                  log,
+		processes:            make(map[uint32]*process),
+		proxyFilter:          newDockerProxyFilter(log),
+		extractor:            newServiceExtractor(sysprobeconfig),
+		processNameExtractor: newProcessNameExtractor(),
+		pidAliveFunc:         ddos.PidExists,
 	}
 	err := em.AddEventConsumerHandler(dsc)
 	if err != nil {
@@ -83,6 +87,8 @@ type process struct {
 	PPid      uint32
 	Cmdline   []string
 	Cwd       string
+	Comm      string
+	Exe       string
 	EventType model.EventType
 }
 
@@ -124,17 +130,41 @@ func (d *directSenderConsumer) HandleEvent(ev any) {
 	}
 	eventConsumerTelemetry.eventsReceived.Inc(p.EventType.String())
 	if p.EventType == model.ExecEventType || p.EventType == model.ForkEventType {
-		cwd, err := os.Readlink(kernel.HostProc(strconv.Itoa(int(p.Pid)), "cwd"))
-		if err != nil && !os.IsNotExist(err) {
-			if cwdLogLimiter.ShouldLog() {
-				d.log.Warnf("error reading working directory for pid %d: %s", p.Pid, err)
+		pidStr := strconv.Itoa(int(p.Pid))
+		if p.Cwd == "" {
+			cwd, err := os.Readlink(kernel.HostProc(pidStr, "cwd"))
+			if err != nil && !os.IsNotExist(err) {
+				if cwdLogLimiter.ShouldLog() {
+					d.log.Warnf("error reading working directory for pid %d: %s", p.Pid, err)
+				}
 			}
+			p.Cwd = cwd
 		}
-		p.Cwd = cwd
+
+		if p.Comm == "" {
+			comm, err := os.ReadFile(kernel.HostProc(pidStr, "comm"))
+			if err != nil && !os.IsNotExist(err) {
+				if cwdLogLimiter.ShouldLog() {
+					d.log.Warnf("error reading comm for pid %d: %s", p.Pid, err)
+				}
+			}
+			p.Comm = string(bytes.TrimSpace(comm))
+		}
+
+		if p.Exe == "" {
+			exe, err := os.Readlink(kernel.HostProc(pidStr, "exe"))
+			if err != nil && !os.IsNotExist(err) {
+				if cwdLogLimiter.ShouldLog() {
+					d.log.Warnf("error reading exe for pid %d: %s", p.Pid, err)
+				}
+			}
+			p.Exe = exe
+		}
 	}
 	d.process(p)
 	d.proxyFilter.process(p)
 	d.extractor.process(p)
+	d.processNameExtractor.process(p)
 }
 
 func (d *directSenderConsumer) process(p *process) {
@@ -173,6 +203,7 @@ func (d *directSenderConsumer) cleanupProcesses() {
 
 		if !alive {
 			d.extractor.handleDeadProcess(pid)
+			d.processNameExtractor.handleDeadProcess(pid)
 			delete(d.processes, pid)
 		}
 	}

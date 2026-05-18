@@ -40,7 +40,7 @@ import (
 	"github.com/DataDog/datadog-agent/comp/core/status"
 	tagger "github.com/DataDog/datadog-agent/comp/core/tagger/def"
 	taggerserver "github.com/DataDog/datadog-agent/comp/core/tagger/server"
-	"github.com/DataDog/datadog-agent/comp/core/telemetry"
+	"github.com/DataDog/datadog-agent/comp/core/telemetry/def"
 	workloadmeta "github.com/DataDog/datadog-agent/comp/core/workloadmeta/def"
 	dcametadata "github.com/DataDog/datadog-agent/comp/metadata/clusteragent/def"
 	clusterchecksmetadata "github.com/DataDog/datadog-agent/comp/metadata/clusterchecks/def"
@@ -211,6 +211,7 @@ func isExternalPath(path string) bool {
 		strings.HasPrefix(path, "/api/v1/cluster/id") && len(strings.Split(path, "/")) == 5 ||
 		strings.HasPrefix(path, "/api/v1/clusterchecks/") && len(strings.Split(path, "/")) == 6 ||
 		strings.HasPrefix(path, "/api/v1/endpointschecks/") && len(strings.Split(path, "/")) == 6 ||
+		strings.HasPrefix(path, "/api/v1/instrumentation/") && len(strings.Split(path, "/")) == 5 ||
 		strings.HasPrefix(path, "/api/v1/metadata/namespace/") && len(strings.Split(path, "/")) == 6 ||
 		strings.HasPrefix(path, "/api/v1/tags/cf/apps/") && len(strings.Split(path, "/")) == 7 ||
 		strings.HasPrefix(path, "/api/v1/tags/namespace/") && len(strings.Split(path, "/")) == 6 ||
