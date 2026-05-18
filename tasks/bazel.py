@@ -5,6 +5,7 @@ import re
 import subprocess
 import sys
 from collections import defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -144,25 +145,55 @@ def _label_to_import_path(label: str) -> str:
 _NO_TESTS_MARKER = "testing: warning: no tests to run"
 
 
-def _test_log_has_cases(uri: str) -> bool:
-    """Read Bazel's test.log for a test action and report whether the Go
-    testing framework actually ran at least one TestX. A no-op binary (every
-    *_test.go gated out by //go:build) emits a specific warning we grep for.
+def _test_log_status(uri: str) -> tuple[bool, str]:
+    """Return (had_cases, reason). had_cases is True iff the Go testing
+    framework actually ran at least one TestX. A no-op binary (every *_test.go
+    gated out by //go:build) emits a specific warning we grep for. When the
+    log can't be read or contains the marker, reason explains which — used by
+    the parity check to surface why a Bazel variant didn't count.
 
     Bazel also produces a test.xml, but rules_go's default go_test action
     writes only an empty <testsuites></testsuites> placeholder unless an
     external runner like gotestsum is wired in. The plain stdout log is the
     only signal that works against the default rules_go configuration.
     """
-    path = urlparse(uri).path if uri.startswith("file://") else uri
+    if not uri.startswith("file://"):
+        scheme = uri.split("://", 1)[0] if "://" in uri else "(none)"
+        return False, f"test.log not on local filesystem (scheme={scheme!r})"
+    path = urlparse(uri).path
     try:
         with open(path) as fh:
-            return _NO_TESTS_MARKER not in fh.read()
-    except OSError:
-        return False
+            content = fh.read()
+    except OSError as e:
+        return False, f"test.log unreadable ({type(e).__name__}): {path}"
+    if _NO_TESTS_MARKER in content:
+        return False, "test.log contains 'no tests to run' marker"
+    return True, ""
 
 
-def _bazel_covered_packages_from_bep(bep_path: Path) -> tuple[dict[str, set[str]], set[str]]:
+@dataclass
+class BazelCoverage:
+    """Test coverage Bazel reports for the current host, derived from BEP.
+
+    The parity check compares Go-side test discovery against this to decide
+    whether each Go test package has a matching Bazel run.
+    """
+
+    # Import paths covered by dd_go_test variants Bazel actually exercised,
+    # keyed by flavor name.
+    dd_covered: dict[str, set[str]] = field(default_factory=lambda: defaultdict(set))
+    # Import paths from plain go_test rules (no flavor tag, e.g. rtloader's
+    # custom wrapper). Flavor-agnostic; the caller intersects with each
+    # flavor's Go-side test set to attribute them.
+    plain_paths: set[str] = field(default_factory=set)
+    # For each (flavor, import_path) where a dd_go_test variant was *not*
+    # counted as covered, why — one entry per rejected variant. Surfaced
+    # inline with forward-failure messages so the diagnosis lives in the job
+    # log.
+    dd_rejections: dict[tuple[str, str], list[str]] = field(default_factory=lambda: defaultdict(list))
+
+
+def _bazel_covered_packages_from_bep(bep_path: Path) -> BazelCoverage:
     """Parse a Build Event Protocol JSON stream and return two coverage sets:
 
     1. `dd_covered` — {flavor_name: {import_path}} for dd_go_test variants
@@ -225,22 +256,31 @@ def _bazel_covered_packages_from_bep(bep_path: Path) -> tuple[dict[str, set[str]
                 if event.get("aborted", {}).get("reason") == "SKIPPED":
                     skipped_labels.add(eid["targetCompleted"].get("label", ""))
 
-    dd_covered: dict[str, set[str]] = defaultdict(set)
+    coverage = BazelCoverage()
     for label, flavor in target_flavor.items():
+        import_path = _label_to_import_path(label)
         uri = test_log_uri.get(label)
         if uri is None:
-            # No TestResult event: Bazel skipped this target (e.g.
-            # target_compatible_with rejected it). Not "covered" here.
+            # No testResult event. Either tag-filtered out by --config=<flavor>
+            # (analysis ran but execution didn't) or target_compatible_with
+            # rejected the target. Both mean "not covered" for parity.
+            reason = (
+                "skipped by target_compatible_with"
+                if label in skipped_labels
+                else "no testResult (likely filtered by --test_tag_filters)"
+            )
+            coverage.dd_rejections[(flavor, import_path)].append(f"{label}: {reason}")
             continue
-        if not _test_log_has_cases(uri):
-            # Ran a test binary with zero TestX functions — happens when every
-            # *_test.go is filtered out by //go:build for this flavor/platform
-            # combo. Parity-wise indistinguishable from "no test".
+        had_cases, reason = _test_log_status(uri)
+        if not had_cases:
+            coverage.dd_rejections[(flavor, import_path)].append(f"{label}: {reason}")
             continue
-        dd_covered[flavor].add(_label_to_import_path(label))
+        coverage.dd_covered[flavor].add(import_path)
 
-    plain_paths = {_label_to_import_path(label) for label in plain_go_test_labels if label not in skipped_labels}
-    return dd_covered, plain_paths
+    coverage.plain_paths = {
+        _label_to_import_path(label) for label in plain_go_test_labels if label not in skipped_labels
+    }
+    return coverage
 
 
 def _test_funcs(file_paths: list[str]) -> set[str]:
@@ -302,7 +342,7 @@ def ensure_test_parity(ctx, bep, flavor_name=None, verbose=False):
             print(f"Unknown flavor '{flavor_name}'. Options: {[f.name for f in AgentFlavor]}", file=sys.stderr)
             sys.exit(1)
 
-    dd_covered_by_flavor, plain_paths = _bazel_covered_packages_from_bep(bep_path)
+    coverage = _bazel_covered_packages_from_bep(bep_path)
 
     failed = False
     for flavor in flavors:
@@ -312,7 +352,7 @@ def ensure_test_parity(ctx, bep, flavor_name=None, verbose=False):
         # whose import_path is a real Go test package for this flavor, so labels
         # with mismatched dirs (subdir-located tests, Bazel-only rule tests
         # outside the Go workspace) don't produce spurious reverse failures.
-        bazel_pkgs = dd_covered_by_flavor.get(flavor.name, set()) | (plain_paths & test_pkgs.keys())
+        bazel_pkgs = coverage.dd_covered.get(flavor.name, set()) | (coverage.plain_paths & test_pkgs.keys())
         for import_path, test_files in sorted(test_pkgs.items()):
             if import_path in bazel_pkgs:
                 bazel_pkgs.discard(import_path)
@@ -324,6 +364,8 @@ def ensure_test_parity(ctx, bep, flavor_name=None, verbose=False):
                 sample = ", ".join(sorted(funcs)[:3])
                 suffix = ", ..." if len(funcs) > 3 else ""
                 print(f"[FAIL] {import_path} [{flavor.name}] -- no Bazel target ({len(funcs)}: {sample}{suffix})")
+                for reason in coverage.dd_rejections.get((flavor.name, import_path), []):
+                    print(f"       Bazel: {reason}")
                 failed = True
         for import_path in sorted(bazel_pkgs):
             print(f"[FAIL] {import_path} [{flavor.name}] -- Bazel target exists but no matching dda inv test package")
